@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Repository.Entities
 {
-    public enum UserType { Customer, Administrator } // (סוג משתמש (לקוח, מנהל מערכת
+    public enum UserType { user, admin }
     public enum UserRank { Regular, Bronze, Silver, Gold, PurpleBadge }// דרגת משתמש
 
     //טבלת משתמשים

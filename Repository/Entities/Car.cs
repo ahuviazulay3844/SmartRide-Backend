@@ -67,8 +67,6 @@ namespace Repository.Entities
         [ForeignKey("RegionId")]
         public virtual Region Region { get; set; } // קישור לטבלת אזורים
 
-
-
         // --- קשרים ורשימות ---
         public virtual ICollection<CarFeedback> Feedbacks { get; set; } = new List<CarFeedback>();//רשימת פידבקים על הרכב זה
 

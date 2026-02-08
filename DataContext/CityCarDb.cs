@@ -5,11 +5,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Repository.Entities;
+using Repository.Interfaces;
 
 namespace DataContext
 {
     //מחלקת הקשר לבסיס הנתונים - CityCarDb
-    public class CityCarDb: DbContext
+    public class CityCarDb: DbContext,IContext
     {
         // טבלאות המערכת - DbSets
         public DbSet<User> Users { get; set; }// טבלת משתמשים
@@ -19,28 +20,51 @@ namespace DataContext
         public DbSet<Coupon> Coupons { get; set; }// טבלת קופונים
         public DbSet<CarFeedback> Feedbacks { get; set; }// טבלת פידבקים
 
-        // הגדרת חיבור לבסיס הנתונים
+        public void Save()
+        {
+            SaveChanges();
+        }
+
+        //  חיבור לבסיס הנתונים
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlServer("server=DESKTOP-1VUANBN;database=CityCarDB;trusted_connection=true;TrustServerCertificate=True");
         }
 
 
-        // הגדרות נוספות למודלים
+
+
+
+
+
+
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // הגדרת דיוק לשדות כספיים
-            modelBuilder.Entity<Car>().Property(c => c.PricePerHour).HasPrecision(18, 2);
-            modelBuilder.Entity<Order>().Property(o => o.TotalPrice).HasPrecision(18, 2);
-            modelBuilder.Entity<Coupon>().Property(cp => cp.DiscountAmount).HasPrecision(18, 2);
+             modelBuilder.Entity<Car>().Property(c => c.PricePerHour).HasPrecision(18, 2);
+             modelBuilder.Entity<Order>().Property(o => o.TotalPrice).HasPrecision(18, 2);
+             modelBuilder.Entity<Coupon>().Property(cp => cp.DiscountAmount).HasPrecision(18, 2);
 
-            // הגדרת קשר אחד-לאחד בין הזמנה לפידבק
-            modelBuilder.Entity<Order>()
-                .HasOne(o => o.Feedback)
-                .WithOne(f => f.Order)
-                .HasForeignKey<CarFeedback>(f => f.OrderId);
+             modelBuilder.Entity<Order>()
+            .HasOne(o => o.Feedback)
+            .WithOne(f => f.Order)
+            .HasForeignKey<CarFeedback>(f => f.OrderId)
+            .OnDelete(DeleteBehavior.Restrict);
 
-            base.OnModelCreating(modelBuilder);
+             modelBuilder.Entity<CarFeedback>()
+                .HasOne(f => f.User)
+                .WithMany()
+                .HasForeignKey(f => f.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+             modelBuilder.Entity<CarFeedback>()
+                .HasOne(f => f.Car)
+                .WithMany()
+                .HasForeignKey(f => f.CarId)
+                .OnDelete(DeleteBehavior.Restrict);
+
         }
+
+
     }
 }
