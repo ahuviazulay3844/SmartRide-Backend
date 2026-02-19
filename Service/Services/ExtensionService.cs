@@ -16,8 +16,8 @@ namespace Service.Services
             services.AddScoped<ICarService, CarService>();
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<ICarFeedbackService, CarFeedbackService>();
-            
-        
+            services.AddHttpContextAccessor();
+
             return services;
         }
     }

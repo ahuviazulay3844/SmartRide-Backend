@@ -8,6 +8,7 @@ namespace Common.Dto
 {
     public class OrderDto
     {
+
         public int Id { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime ExpectedEndTime { get; set; }
@@ -16,6 +17,7 @@ namespace Common.Dto
         public bool IsPaid { get; set; }
         public int UserId { get; set; }
         public int CarId { get; set; }
-        public string? CarModel { get; set; } 
+        public string? CarModel { get; set; }
+        public string PricingType { get; set; }
     }
 }

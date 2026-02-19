@@ -52,7 +52,13 @@ namespace Repository.Repositories
 
         public bool Update(int id,CarFeedback item)
         {
-            throw new NotImplementedException();
+            var existingFeedback = context.Feedbacks.Find(id);
+            if (existingFeedback == null) return false;
+            existingFeedback.Rating = item.Rating;
+            existingFeedback.UserComment = item.UserComment;
+            existingFeedback.ReportedIssue = item.ReportedIssue;
+            context.Save();
+            return true;
         }
     }
 }

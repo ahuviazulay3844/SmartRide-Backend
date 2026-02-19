@@ -15,6 +15,8 @@ namespace Repository
             services.AddScoped<IRepository<Car>, CarRepository>();
             services.AddScoped<IRepository<Order>, OrderRepository>();
             services.AddScoped<IRepository<Region>, RegionRepository>();
+            services.AddScoped<IRepository<Coupon>, CouponRepository>();
+            services.AddScoped<IRepository<CarFeedback>, FeedbackRepository>();
             return services;
         }
     }

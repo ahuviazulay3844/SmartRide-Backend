@@ -1,9 +1,11 @@
-﻿using DataContext;
+﻿using Common.Dto;
+using DataContext;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repository.Interfaces;
+using Service.Interfaces;
 using Service.Services;
 using System.Text;
 
@@ -12,6 +14,7 @@ builder.Services.AddControllers();
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IContext, CityCarDb>();
 builder.Services.AddScoped<IContext, CityCarDb>();
+//builder.Services.AddScoped<IsExist<UserDto>, UserService>();//builder.Services.AddScoped(typeof(IsExist<>), typeof(IsExist<UserDto>));
 builder.Services.AddServices();
 builder.Services.AddSwaggerGen(c =>
 {

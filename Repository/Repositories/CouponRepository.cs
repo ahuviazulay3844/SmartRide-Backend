@@ -53,8 +53,18 @@ namespace Repository.Repositories
 
         public bool Update(int id,Coupon item)
         {
-          
-            return false;
+
+            var existingCoupon = context.Coupons.Find(id);
+            if (existingCoupon == null) return false;
+            existingCoupon.Code = item.Code; 
+            existingCoupon.DiscountType = item.DiscountType; 
+            existingCoupon.DiscountAmount = item.DiscountAmount; 
+            existingCoupon.ExpirationDate = item.ExpirationDate; 
+            existingCoupon.IsUsed = item.IsUsed; 
+            existingCoupon.MinimumOrderAmount = item.MinimumOrderAmount; 
+            existingCoupon.UserId = item.UserId; 
+            context.Save();
+            return true;
         }
     }
 }

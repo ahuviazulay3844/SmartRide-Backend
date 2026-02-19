@@ -14,26 +14,21 @@ namespace Project.Controllers
     [ApiController]
     public class UsersController: ControllerBase
     {
-        private readonly IConfiguration _configuration;
         private readonly IUserService userService;
-        public readonly IsExist<UserDto> isExist;
 
-        public UsersController(IUserService userService, IConfiguration configuration, IsExist<UserDto> isExist)
+        public UsersController(IUserService userService)
         {
             this.userService = userService;
-            this._configuration = configuration;
-            this.isExist = isExist;
         }
 
 
         [HttpPost("login")]
         public string Login([FromBody] LoginDto l)
         {
-            UserDto user = isExist.Exist(l);
-
-            if (user != null)
-                return GenerateToken(user);
-            return "user dosent exist..";
+            var token = userService.Login(l);
+            if (token == null || token == "user dosent exist..")
+                return "מייל או סיסמה שגויים";
+            return token;
         }
 
         [HttpGet]
@@ -71,42 +66,24 @@ namespace Project.Controllers
             return userService.Delete(id);
         }
 
-        private string GenerateToken(UserDto user)
-        {
-            var secret = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var credentials = new SigningCredentials(secret, SecurityAlgorithms.HmacSha256);
-            var claims = new[] {
-                new Claim(ClaimTypes.Name, user.FirstName),
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), 
-                new Claim(ClaimTypes.Role, user.UserType.ToString()) 
-            };
-            var token = new JwtSecurityToken(
-                _configuration["Jwt:Issuer"],
-                _configuration["Jwt:Audience"],
-                claims,
-                expires: DateTime.Now.AddMinutes(60),
-                signingCredentials: credentials);
-                
-                return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-        private UserDto? GetCurrentUser()
-        {
-            var identity = HttpContext.User.Identity as ClaimsIdentity;
-            if (identity != null)
-            {
-                var userClaims = identity.Claims;
+    //  [HttpPost]
+    //    private UserDto? GetCurrentUser()
+    //    {
+    //        var identity = HttpContext.User.Identity as ClaimsIdentity;
+    //        if (identity != null)
+    //        {
+    //            var userClaims = identity.Claims;
 
-                return new UserDto()
-                {
-                    Id = int.Parse(userClaims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value ?? "0"),
+    //            return new UserDto()
+    //            {
+    //                Id = int.Parse(userClaims.FirstOrDefault(x => x.Type == ClaimTypes.NameIdentifier)?.Value ?? "0"),
 
-                    FirstName = userClaims.FirstOrDefault(x => x.Type == ClaimTypes.Name)?.Value,
+    //                FirstName = userClaims.FirstOrDefault(x => x.Type == ClaimTypes.Name)?.Value,
 
-                    UserType = userClaims.FirstOrDefault(x => x.Type == ClaimTypes.Role)?.Value
-                };
-            }
-            return null;
-        }
+    //                UserType = userClaims.FirstOrDefault(x => x.Type == ClaimTypes.Role)?.Value
+    //            };
+    //        }
+    //        return null;
+    //    }
     }
 }
-

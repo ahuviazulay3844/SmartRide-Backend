@@ -8,5 +8,6 @@ namespace Service.Interfaces
 {
     public interface IUserService: IService<UserDto>
     {
+        string Login(LoginDto loginDto);
     }
 }

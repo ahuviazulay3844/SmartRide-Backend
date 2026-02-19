@@ -54,18 +54,19 @@ namespace Repository.Repositories
         public bool Update(int id, Car item)
         {
             var carToUpdate = context.Cars.Find(id);
-            if (carToUpdate != null)
-            {
-                carToUpdate.Model = item.Model;
-                carToUpdate.FuelLevel = item.FuelLevel;
-                carToUpdate.Kilometers = item.Kilometers;
-                carToUpdate.Status = item.Status;
-                carToUpdate.PricePerHour = item.PricePerHour;
-
-                context.Save();
-                return true;
-            }
-            return false;
+            if (carToUpdate == null) return false;
+            carToUpdate.Model = item.Model;
+            carToUpdate.FuelLevel = item.FuelLevel;
+            carToUpdate.Kilometers = item.Kilometers;
+            carToUpdate.Status = item.Status;
+            carToUpdate.PricePerHour = item.PricePerHour;
+            carToUpdate.PricePerDay = item.PricePerDay;
+            carToUpdate.PricePerKm = item.PricePerKm;
+            carToUpdate.Seats = item.Seats;
+            carToUpdate.ImageUrl = item.ImageUrl;
+            carToUpdate.LicensePlate = item.LicensePlate;
+            context.Save();
+            return true;
         }
     
     }

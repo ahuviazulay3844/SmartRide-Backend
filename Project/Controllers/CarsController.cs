@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Service.Interfaces;
 
-
 namespace Project.Controllers
 {
     [Route("api/[controller]")]
@@ -14,16 +13,15 @@ namespace Project.Controllers
         private readonly ICarService carService;
    
     public CarsController(ICarService carService)
-        {
+    {
             this.carService = carService;
-        }
+    }
 
         [HttpGet]
         public IEnumerable<CarDto> Get()
         {
             return carService.GetAll();
         }
-       
 
         [HttpGet("{id}")]
         public CarDto? Get(int id)
@@ -51,7 +49,6 @@ namespace Project.Controllers
         {
             return carService.Delete(id);
         }
-
 
     }
 }

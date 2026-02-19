@@ -54,14 +54,18 @@ namespace Repository.Repositories
         public bool Update(int id, Order item)
         {
             var existingOrder = context.Orders.Find(id);
-            if (existingOrder != null)
-            {
-                context.Orders.Remove(existingOrder);
-                context.Orders.Add(item);
-                context.Save();
-                return true;
-            }
-            return false;
+            if (existingOrder == null) return false;
+            existingOrder.Status = item.Status;
+            existingOrder.IsPaid = item.IsPaid;
+            existingOrder.EndTime = item.EndTime;
+            existingOrder.EndMileage = item.EndMileage;
+            existingOrder.DistanceDrivenKm = item.DistanceDrivenKm;
+            existingOrder.LateFee = item.LateFee;
+            existingOrder.TotalPrice = item.TotalPrice;
+            existingOrder.ConditionNotes = item.ConditionNotes;
+            existingOrder.DidCustomerRefuel = item.DidCustomerRefuel;
+            context.Save();
+            return true;
         }
     }
 }

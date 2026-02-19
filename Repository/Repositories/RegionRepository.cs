@@ -55,14 +55,20 @@ namespace Repository.Repositories
         public bool Update(int id, Region item)
         {
             var existingRegion = context.Regions.Find(id);
+
             if (existingRegion != null)
             {
-                context.Regions.Remove(existingRegion);
-                context.Regions.Add(item);
+                existingRegion.Name = item.Name;
+                existingRegion.CenterLatitude = item.CenterLatitude;
+                existingRegion.CenterLongitude = item.CenterLongitude;
+
                 context.Save();
                 return true;
             }
+
             return false;
         }
+
     }
 }
+
