@@ -1,4 +1,5 @@
-﻿using Common.Dto;
+﻿using AutoMapper;
+using Common.Dto;
 using Microsoft.AspNetCore.Http;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -6,9 +7,11 @@ using Service.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.ConstrainedExecution;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Service.Services
 {
@@ -16,85 +19,63 @@ namespace Service.Services
     {
         private readonly IRepository<Order> _orderRepository;
         private readonly IRepository<Car> _carRepository;
+        private readonly IRepository<User> _userRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IMapper _mapper;
 
-        public OrderService(IRepository<Order> orderRepository, IRepository<Car> carRepository, IHttpContextAccessor httpContextAccessor)
+        public OrderService(IRepository<Order> orderRepository, IRepository<Car> carRepository, IRepository<User> userRepository, IHttpContextAccessor httpContextAccessor, IMapper mapper)
         {
             _orderRepository = orderRepository;
             _carRepository = carRepository;
+            _userRepository = userRepository;
             _httpContextAccessor = httpContextAccessor;
+            _mapper = mapper;
         }
         public OrderDto Add(OrderDto item)
         {
-            // למנוע זיופים: שליפת המשתמש המחובר מהטוקן
             var userIdStr = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             int currentUserId = int.Parse(userIdStr ?? "0");
-            if (currentUserId == 0) throw new Exception("נא להתחבר למערכת");
-            //בדיקה שהרכב פנוי בזמנים המבוקשים
-            var isCarBusy = _orderRepository.GetAll().Any(o =>
-                            o.CarId == item.CarId &&
-                            o.Status != OrderStatus.Completed &&
-                            ((item.StartTime >= o.StartTime && item.StartTime < o.ExpectedEndTime) ||
-                             (item.ExpectedEndTime > o.StartTime && item.ExpectedEndTime <= o.ExpectedEndTime)));
-            if (isCarBusy) throw new Exception("הרכב אינו פנוי בזמנים המבוקשים");
+            if (currentUserId == 0) return null;
+            var isCarBusy = IsCarBusy(item);
+            if (isCarBusy) return null;
+            var basePrice = CalculateOrderPrice(item);
+            if (basePrice == 0) return null;
+            Order newOrder = _mapper.Map<Order>(item);
             var car = _carRepository.GetById(item.CarId);
-            if (car == null) throw new Exception("רכב לא נמצא");
-            TimeSpan duration = item.ExpectedEndTime - item.StartTime;
-            decimal calculatedPrice = 0;
-            var pType = Enum.TryParse(item.PricingType, out PricingType type) ? type : PricingType.ByHour;
-            if (pType == PricingType.ByDay)
+            var user = _userRepository.GetById(item.UserId);
+            bool IsBlocked = user.IsBlocked || car.Status != Repository.Entities.CarStatus.Available;
+            if (IsBlocked) { return null; }
+            if (Enum.TryParse(item.PricingType, out PricingType pType))
             {
-                int days = (int)Math.Ceiling(duration.TotalDays);
-                calculatedPrice = days * car.PricePerDay;
+                newOrder.PricingType = pType;
             }
-            else 
+            else
             {
-                calculatedPrice = (decimal)duration.TotalHours * car.PricePerHour;
+                newOrder.PricingType = PricingType.ByHour;
             }
-
-            Order newOrder = new Order
-            {
-                StartTime = item.StartTime,
-                ExpectedEndTime = item.ExpectedEndTime,
-                UserId = currentUserId,
-                CarId = item.CarId,
-                BasePrice = calculatedPrice,
-                TotalPrice = calculatedPrice,
-                PricingType = pType,
-                Status = OrderStatus.Pending,
-                IsPaid = false
-            };
-
+            int age = DateTime.Now.Year - newOrder.User.DateOfBirth.Year;
+            if (age < 24) { newOrder.User.IsNewDriver = true; }
+            newOrder.UserId = currentUserId;
+            newOrder.BasePrice = basePrice; newOrder.Status = OrderStatus.Pending;
+            newOrder.IsPaid = false;
             var saved = _orderRepository.Add(newOrder);
-            item.Id = saved.Id;
-            item.TotalPrice = saved.TotalPrice;
-            item.UserId = currentUserId;
-            item.Status = saved.Status.ToString();
-
-            return item;
+            return _mapper.Map<OrderDto>(saved);
         }
-
         public bool Delete(int id)
         {
             var order = _orderRepository.GetById(id);
             if (order == null) return false;
-
             var user = _httpContextAccessor.HttpContext?.User;
-            //שליפת הID מהטוקן
             var currentUserId = int.Parse(user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             var currentUserRole = user?.FindFirst(ClaimTypes.Role)?.Value;
-
             if (currentUserRole != "admin")
             {
                 if (order.UserId != currentUserId || order.StartTime <= DateTime.Now)
                 {
-                    return false; 
+                    return false;
                 }
             }
-
-            if (order.Status != OrderStatus.Pending)
-                throw new Exception("לא ניתן לבטל הזמנה שכבר החלה או הושלמה");
-
+            if (order.Status != OrderStatus.Pending) return false;
             return _orderRepository.Delete(id);
         }
 
@@ -103,52 +84,235 @@ namespace Service.Services
             return _orderRepository.Exists(id);
         }
 
+        public bool FinishOrder(int orderId, int reportedMileage, int fuelTime)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null) return false;
+
+            var user = _userRepository.GetById(order.UserId);
+            var car = _carRepository.GetById(order.CarId);
+
+            // עדכון נתוני סיום נסיעה
+            order.EndTime = DateTime.Now;
+            order.EndMileage = reportedMileage;
+            order.DistanceDrivenKm = reportedMileage - order.StartMileage;
+            order.Status = OrderStatus.Completed;
+
+            //  חישוב קנס איחור
+            order.LateFee = order.EndTime > order.ExpectedEndTime
+                ? (decimal)((order.EndTime.Value.Minute - order.ExpectedEndTime.Minute) * 10)
+                : 0;
+            user.CompletedOrdersCount++;
+            user.Rank = CalculateNewRank(user.CompletedOrdersCount);
+
+            // בונוס תדלוק
+            if (order.DidCustomerRefuel)
+            {
+                int effectiveFuelTimes = Math.Min(fuelTime, 2);
+                decimal fuelBonus = effectiveFuelTimes * car.PricePerHour;
+                user.AccountBalance += fuelBonus;
+            }
+
+            if (user.IsNewDriver)
+            {
+                order.TotalPrice += 50;
+            }
+
+            if (order.WantsInsuranceUpgrade)
+            {
+                if (order.PricingType == 0) // שעתי
+                {
+                    order.TotalPrice += car.Seats > 5 ? 10 : 5;
+                }
+                else // יומי
+                {
+                    order.TotalPrice += car.Seats > 5 ? 50 : 40;
+                }
+            }
+
+            // 6. חישוב מחיר סופי ושקלול יתרה/הנחת דרגה
+            order.TotalPrice = order.BasePrice + (decimal)(order.DistanceDrivenKm * 1.5) + order.LateFee + user.AccountBalance;
+
+            decimal discount = GetRankDiscount(user.Rank);
+            if (discount > 0)
+            {
+                order.TotalPrice -= discount * order.TotalPrice;
+            }
+            car.TotalOrdersCount++;
+            car.Kilometers = car.Kilometers + (int)order.DistanceDrivenKm;
+            car.Status = Repository.Entities.CarStatus.Available;
+            user.AccountBalance = 0;
+
+            _orderRepository.Update(order.Id, order);
+            _carRepository.Update(car.Id, car);
+            _userRepository.Update(user.Id, user);
+
+            return true;
+        }
+        private UserRank CalculateNewRank(int completedOrders)
+        {
+            if (completedOrders >= 50) return UserRank.PurpleBadge;
+            if (completedOrders >= 30) return UserRank.Gold;
+            if (completedOrders >= 20) return UserRank.Silver;
+            if (completedOrders >= 10) return UserRank.Bronze;
+            return UserRank.Regular;
+        }
         public IEnumerable<OrderDto> GetAll()
-        {         
-              return _orderRepository.GetAll().Select(o => new OrderDto
-              {
-                  Id = o.Id,
-                  StartTime = o.StartTime,
-                  ExpectedEndTime = o.ExpectedEndTime,
-                  TotalPrice = o.TotalPrice,
-                  Status = o.Status.ToString(),
-                  IsPaid = o.IsPaid,
-                  UserId = o.UserId,
-                  CarId = o.CarId,
-                  CarModel = o.Car?.Model
-              }).ToList();
+        {
+            var orders = _orderRepository.GetAll();
+            return _mapper.Map<IEnumerable<OrderDto>>(orders);
         }
 
         public OrderDto? GetById(int id)
         {
-            if(!Exists(id)) return null;
-
             var order = _orderRepository.GetById(id);
             if (order == null) return null;
-
-            return new OrderDto
-            {
-                Id = order.Id,
-                StartTime = order.StartTime,
-                ExpectedEndTime = order.ExpectedEndTime,
-                TotalPrice = order.TotalPrice,
-                Status = order.Status.ToString(),
-                IsPaid = order.IsPaid,
-                UserId = order.UserId,
-                CarId = order.CarId,
-                CarModel = order.Car?.Model
-            };
+            return _mapper.Map<OrderDto>(order);
         }
 
         public bool Update(int id, OrderDto item)
         {
             var existing = _orderRepository.GetById(id);
             if (existing == null) return false;
-            //צריך להוסיף פה דברים אבל בהמשך...
-            existing.Status = Enum.TryParse(item.Status, out OrderStatus status) ? status : existing.Status;
-            existing.IsPaid = item.IsPaid;
-
+            _mapper.Map(item, existing);
             return _orderRepository.Update(id, existing);
+        }
+        //בדיקה האם הרכב תפוס בזמנים המבוקשים
+        public bool IsCarBusy(OrderDto item)
+        {
+            return _orderRepository.GetAll().Any(o =>
+             o.CarId == item.CarId &&
+             o.Status != OrderStatus.Completed &&
+             ((item.StartTime >= o.StartTime && item.StartTime < o.ExpectedEndTime) ||
+              (item.ExpectedEndTime > o.StartTime && item.ExpectedEndTime <= o.ExpectedEndTime)));
+        }
+
+        //חישוב מחיר הזמנה בסיסי לפי סוג תמחור וזמן השכרה
+        public decimal CalculateOrderPrice(OrderDto item)
+        {
+            //חישוב מחיר בסיסי 
+            var car = _carRepository.GetById(item.CarId);
+            if (car == null) return 0;
+            TimeSpan duration = item.ExpectedEndTime - item.StartTime;
+            decimal calculatedPrice = 0;
+            var pType = Enum.TryParse(item.PricingType, out PricingType type) ? type : PricingType.ByHour;
+            if (pType == PricingType.ByDay)
+            {
+                int days = (int)Math.Ceiling(duration.TotalDays);
+                calculatedPrice = days * car.PricePerDay;
+            }
+            else
+            {
+                calculatedPrice = (decimal)duration.TotalHours * car.PricePerHour;
+            }
+            return calculatedPrice;
+        }
+        //חישוב הנחה לפי דרגת משתמש
+        private decimal GetRankDiscount(UserRank rank)
+        {
+            return rank switch
+            {
+                UserRank.PurpleBadge => 0.15m,
+                UserRank.Gold => 0.10m,
+                _ => 0m      //DEFULT             
+            };
+        }
+        //סימולציה של נסיעה - להוסיף קילומטרים ולצרוך דלק בהתאם לאורך הנסיעה
+        public bool SimulateDrive(int orderId, int kmToAdd)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || order.Status != OrderStatus.Active) return false;
+
+            var car = _carRepository.GetById(order.CarId);
+
+            // סימולציה של צריכת דלק: כל 10 ק"מ יורד 5% דלק
+            int fuelConsumed = (kmToAdd / 10) * 5;
+            car.FuelLevel = Math.Max(0, car.FuelLevel - fuelConsumed);
+            car.Kilometers += kmToAdd;
+            _carRepository.Update(car.Id, car);
+            return true;
+        }
+        //פעולת פתחיחת רכב
+        public bool UnlockCar(int orderId)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || order.Status != OrderStatus.Active) return false;
+
+            var car = _carRepository.GetById(order.CarId);
+            if (car == null) return false;
+
+            car.IsLocked = false;
+            _carRepository.Update(car.Id, car);
+            return true;
+        }
+        //פעולת נעילת רכב
+        public bool LockCar(int orderId)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || order.Status != OrderStatus.Active) return false;
+
+            var car = _carRepository.GetById(order.CarId);
+            if (car == null) return false;
+
+            car.IsLocked = true;
+            _carRepository.Update(car.Id, car);
+            return true;
+        }
+        //עדכון התקדמות נסיעה - כל דקה להוסיף קילומטרים ולצרוך דלק
+        public void UpdateTripProgress(int orderId)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || order.Status != OrderStatus.Active) return;
+            var car = _carRepository.GetById(order.CarId);
+            if (car.IsLocked)
+            {
+                return;
+            }
+            Random rnd = new Random();
+            if (rnd.Next(1, 11) > 2)
+            {
+                int kmThisMinute = rnd.Next(1, 3);
+                car.Kilometers += kmThisMinute;
+                int fuelConsumptionRate = 2;
+                int totalFuelToDrop = kmThisMinute * fuelConsumptionRate;
+                if (car.FuelLevel >= totalFuelToDrop)
+                {
+                    car.FuelLevel -= totalFuelToDrop;
+                }
+                else
+                {
+                    car.FuelLevel = 0;
+                }
+                _carRepository.Update(car.Id, car);
+            }
+        }
+        //דיווח על מצב הרכב בתחילת נסיעה - אם הרכב מלוכלך או פגום, להטיל קנס על המשתמש הקודם
+        public bool ReportStartCondition(int orderId, bool isDirty, bool isDamaged, string comments)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null) return false;
+            if (isDirty || isDamaged)
+            {
+                var lastCompletedOrder = _orderRepository.GetAll()
+                    .Where(o => o.CarId == order.CarId && o.Status == OrderStatus.Completed)
+                    .OrderByDescending(o => o.EndTime)
+                    .FirstOrDefault();
+                if (lastCompletedOrder != null)
+                {
+                    var previousUser = _userRepository.GetById(lastCompletedOrder.UserId);
+                    previousUser.AccountBalance -= 50;
+                    _userRepository.Update(previousUser.Id, previousUser);
+                }
+            }
+            order.ConditionNotes = comments;
+            order.Status = OrderStatus.Active;
+            return UnlockCar(orderId);
+        }
+
+        public bool ReportStartCondition(int orderId, bool isDirty, bool isDamaged)
+        {
+            throw new NotImplementedException();
         }
     }
 }
+

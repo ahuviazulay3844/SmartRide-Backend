@@ -26,6 +26,7 @@ namespace Repository.Entities
         public string LicensePlate { get; set; }//מס רישוי
         public string ? ImageUrl { get; set; } //תמונת רכב
         public int Seats { get; set; }//מס מקומות ברכב
+        public int Year { get; set; }
 
 
         // ---(מצב תפעולי (סטטוס ---
