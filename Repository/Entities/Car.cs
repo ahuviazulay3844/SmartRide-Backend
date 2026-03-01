@@ -11,8 +11,7 @@ namespace Repository.Entities
 {
 
     //(מצב רכב (זמין, חלקית, תפוס
-    public enum CarStatus {  Available, PartiallyBooked, Occupied}
-
+    public enum CarStatus { Available, PartiallyBooked, Occupied }
 
     //טבלת רכבים
     public class Car
@@ -35,7 +34,7 @@ namespace Repository.Entities
         public DateTime? LastLockTime { get; set; } // זמן נעילה אחרון בפועל
         public bool NeedsMaintenance { get; set; } = false; // האם הרכב דורש תחזוקה/ניקיון?
         public string? MaintenanceNotes { get; set; } // פירוט התקלה הנוכחית
-        public int FuelLevel { get; set; } //(רמת הדלק (1.0 = מלא, 0.5 = חצי     
+        public int FuelLevel { get; set; } // רמת דלק נוכחית באחוזים
         public int Kilometers { get; set; } // קילומטרז נוכחי
 
 
@@ -57,7 +56,7 @@ namespace Repository.Entities
 
         // --- סטטיסטיקה ושיווק  ---
         public int TotalOrdersCount { get; set; } = 0; // כמה פעמים הרכב הוזמן בסך הכל
-        public bool IsPopular => TotalOrdersCount > 10; // משתנה שמחשב: אם הוזמן מעל 10 פעמים הוא  פופולרי  
+        public bool IsPopular => TotalOrdersCount > 50; // משתנה שמחשב: אם הוזמן מעל 50 פעמים הוא  פופולרי  
 
 
         //----- קישורים לטבלאות אחרות -----
