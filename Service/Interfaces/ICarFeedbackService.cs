@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 using Common.Dto; 
 namespace Service.Interfaces
 {
-    //כאן לרשום פעולות יחודיות למחלקה הזו
     public interface ICarFeedbackService: IService<CarFeedbackDto>
     {
-
+        IEnumerable<CarFeedbackDto> GetByIdOfCar(int carId);
+        IEnumerable<CarFeedbackDto> GetByIdOfUser(int userId);
     }
 }

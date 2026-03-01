@@ -1,4 +1,5 @@
-﻿using Common.Dto;
+﻿using AutoMapper;
+using Common.Dto;
 using Microsoft.AspNetCore.Http;
 using Repository.Entities;
 using Repository.Interfaces;
@@ -16,11 +17,13 @@ namespace Service.Services
     {
         private readonly IRepository<CarFeedback> _feedbackRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IMapper _mapper;
 
-        public CarFeedbackService(IRepository<CarFeedback> feedbackRepository, IHttpContextAccessor httpContextAccessor)
+        public CarFeedbackService(IRepository<CarFeedback> feedbackRepository, IHttpContextAccessor httpContextAccessor, IMapper mapper)
         {
             _feedbackRepository = feedbackRepository;
             _httpContextAccessor = httpContextAccessor;
+            _mapper = mapper;
         }
 
         public CarFeedbackDto Add(CarFeedbackDto item)
@@ -29,60 +32,26 @@ namespace Service.Services
             int userId = int.Parse(userIdStr ?? "0");
 
             if (userId == 0)
-                throw new Exception("Unauthorized");
-
-            CarFeedback newFeedback = new CarFeedback
-            {
-                Rating = item.Rating,
-                UserComment = item.UserComment,
-                DateCreated = DateTime.Now,
-                CarId = item.CarId,
-                UserId = userId,
-                ReportedIssue = false
-            };
-
+               return null;
+            CarFeedback newFeedback = _mapper.Map<CarFeedback>(item);
+            newFeedback.DateCreated = DateTime.Now;
+            newFeedback.UserId = userId;
             var saved = _feedbackRepository.Add(newFeedback);
-
-            return new CarFeedbackDto
-            {
-                Id = saved.Id,
-                Rating = saved.Rating,
-                UserComment = saved.UserComment,
-                DateCreated = saved.DateCreated,
-                CarId = saved.CarId,
-                UserName = item.UserName 
-            };
+            return _mapper.Map<CarFeedbackDto>(saved);
         }
 
         public IEnumerable<CarFeedbackDto> GetAll()
         {
-            return _feedbackRepository.GetAll()
-                .OrderByDescending(f => f.DateCreated)
-                .Select(f => new CarFeedbackDto
-                {
-                    Id = f.Id,
-                    Rating = f.Rating,
-                    UserComment = f.UserComment,
-                    DateCreated = f.DateCreated,
-                    CarId = f.CarId,
-                    UserName = f.User != null ? f.User.FirstName : null
-                }).ToList();
+            var feedbacks = _feedbackRepository.GetAll().OrderByDescending(f => f.DateCreated);
+    
+            return _mapper.Map<IEnumerable<CarFeedbackDto>>(feedbacks);
         }
 
         public CarFeedbackDto? GetById(int id)
         {
             var f = _feedbackRepository.GetById(id);
             if (f == null) return null;
-
-            return new CarFeedbackDto
-            {
-                Id = f.Id,
-                Rating = f.Rating,
-                UserComment = f.UserComment,
-                DateCreated = f.DateCreated,
-                CarId = f.CarId,
-                UserName = f.User != null ? f.User.FirstName : null
-            };
+            return _mapper.Map<CarFeedbackDto>(f);
         }
 
         public bool Update(int id, CarFeedbackDto item)
@@ -93,12 +62,9 @@ namespace Service.Services
             var existing = _feedbackRepository.GetById(id);
 
             if (existing.UserId != currentUserId && _httpContextAccessor.HttpContext?.User.IsInRole("admin") == false)
-                throw new Exception("Forbidden");
+                return false;
 
-            existing.Rating = item.Rating;
-            existing.UserComment = item.UserComment;
-            // כאן נעדכן רק את השדות שמשתנים
-
+            _mapper.Map(item, existing);
             _feedbackRepository.Update(id, existing);
             return true;
         }
@@ -109,13 +75,25 @@ namespace Service.Services
             var currentUserId = int.Parse(_httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
             if (feedback.UserId != currentUserId)
             {
-                throw new Exception("זה לא המשוב שלך - אין לך רשות למחוק אותו");
+                return false;
             }
             return _feedbackRepository.Delete(id);
         }
         public bool Exists(int id)
         {
             return _feedbackRepository.Exists(id);
+        }
+
+        public IEnumerable<CarFeedbackDto> GetByIdOfCar(int carId)
+        {
+            var feedbacks=_feedbackRepository.GetAll().Where(x=>x.CarId==carId).OrderByDescending(f => f.DateCreated);
+            return _mapper.Map<IEnumerable<CarFeedbackDto>>(feedbacks);
+        }
+
+        public IEnumerable<CarFeedbackDto> GetByIdOfUser(int userId)
+        {
+            var feedbacks = _feedbackRepository.GetAll().Where(x => x.UserId == userId).OrderByDescending(f => f.DateCreated);
+            return _mapper.Map<IEnumerable<CarFeedbackDto>>(feedbacks);
         }
     }
 }
