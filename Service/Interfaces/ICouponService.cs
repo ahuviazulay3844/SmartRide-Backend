@@ -7,7 +7,12 @@ using System.Threading.Tasks;
 
 namespace Service.Interfaces
 {
-    public interface ICouponService: IService<CouponDto>
+    public interface ICouponService : IService<CouponDto>
     {
+        bool MarkAsUsed(int userId, string couponCode);
+        bool IsCouponValid(string code, int userId, decimal currentOrderAmount);
+        IEnumerable<CouponDto> GetUnusedCouponsByUserId(int userId);
+        IEnumerable<CouponDto> GetExpiringSoon(int days);
+        decimal ApplyDiscount(string code, decimal originalAmount, int userId);
     }
 }

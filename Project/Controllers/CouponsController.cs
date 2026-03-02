@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Service.Interfaces;
+using Service.Services;
 
 namespace Project.Controllers
 {
@@ -18,37 +19,91 @@ namespace Project.Controllers
 
     [HttpGet]
     [Authorize(Roles = "admin")]
-    public IEnumerable<CouponDto> Get()
+    public IActionResult Get()
     {
-        return couponService.GetAll();
+      return Ok(couponService.GetAll());    
     }
 
     [HttpGet("{id}")]
     [Authorize(Roles = "admin,user")]
-    public CouponDto? Get(int id)
+    public IActionResult Get(int id)
     {
-        return couponService.GetById(id);
+            var coupon = couponService.GetById(id);
+            if (coupon == null)
+                return NotFound(new { message = "הקופון לא נמצא" });
+            return Ok(coupon);
     }
 
     [HttpPost]
     [Authorize(Roles = "admin")]
-    public CouponDto Post([FromBody]CouponDto item)
+    public IActionResult Post([FromBody]CouponDto item)
     {
-        return couponService.Add(item);
+            var created = couponService.Add(item);
+            if (created == null)
+                return BadRequest(new { message = "קוד קופון זה כבר קיים" });
+
+            return Created("", new { message = "קופון נוצר בהצלחה", data = created });
     }
 
     [HttpPut("{id}")]
     [Authorize(Roles = "admin")]
-    public bool Put(int id, [FromBody]CouponDto item)
+    public IActionResult Put(int id, [FromBody]CouponDto item)
     {
-        return couponService.Update(id, item);
+            var result = couponService.Update(id, item);
+            if (!result)
+                return BadRequest(new { message = "עדכון נכשל" });
+
+            return Ok(new { message = "הקופון עודכן בהצלחה" });
     }
 
     [HttpDelete("{id}")]
     [Authorize(Roles = "admin")]
-    public bool Delete(int id)
+    public IActionResult Delete(int id)
     {
-        return couponService.Delete(id);
+            var result = couponService.Delete(id);
+            if (!result)
+                return NotFound(new { message = "מחיקה נכשלה: הקופון לא נמצא" });
+
+            return Ok(new { message = "הקופון נמחק בהצלחה" });
     }
-}
+    [HttpGet("apply-discount")]
+    public ActionResult<decimal> ApplyDiscount(string code, decimal originalAmount, int userId)
+    {
+        var finalAmount = couponService.ApplyDiscount(code, originalAmount, userId);
+        return Ok(finalAmount);
+    }
+
+    [HttpGet("validate")]
+    public ActionResult<bool> IsCouponValid(string code, int userId, decimal amount)
+    {
+        return Ok(couponService.IsCouponValid(code, userId, amount));
+    }
+
+    [HttpPost("redeem")]
+    public IActionResult MarkAsUsed(int userId, string code)
+    {
+        var success = couponService.MarkAsUsed(userId, code);
+        if (!success)
+        {
+            return BadRequest("הפעולה נכשלה: הקופון כבר נוצל או שאינו תקף.");
+        }
+        return Ok("הקופון מומש בהצלחה.");
+    }
+
+    [HttpGet("user/{userId}/unused")]
+    public ActionResult<IEnumerable<CouponDto>> GetUnusedCouponsByUserId(int userId)
+    {
+        var coupons = couponService.GetUnusedCouponsByUserId(userId);
+        return Ok(coupons);
+    }
+
+    [HttpGet("expiring-soon")]
+    public ActionResult<IEnumerable<CouponDto>> GetExpiringSoon(int days = 7)
+    {
+        var coupons = couponService.GetExpiringSoon(days);
+        return Ok(coupons);
+    }
+
+
+    }
 }
