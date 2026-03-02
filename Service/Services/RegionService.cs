@@ -1,4 +1,5 @@
-﻿using Common.Dto;
+﻿using AutoMapper;
+using Common.Dto;
 using Repository.Entities;
 using Repository.Interfaces;
 using Service.Interfaces;
@@ -13,29 +14,21 @@ namespace Service.Services
     public class RegionService : IRegionService
     {
         private readonly IRepository<Region> _regionRepository;
+        private readonly IMapper _mapper;
 
-        public RegionService(IRepository<Region> regionRepository)
+
+        public RegionService(IRepository<Region> regionRepository, IMapper mapper)
         {
             _regionRepository = regionRepository;
+            _mapper = mapper;
         }
         public RegionDto Add(RegionDto item)
         {
-           if(!Exists(item.Id))
-            {
-                var region = new Region
-                {
-                    Id = item.Id,
-                    Name = item.Name,
-                    CenterLatitude = item.CenterLatitude,
-                    CenterLongitude = item.CenterLongitude
-                };
-                _regionRepository.Add(region);
-                return item;
-            }
-            else
-            {
-                throw new Exception("Region with the same ID already exists.");
-            }
+            var exists = _regionRepository.GetAll().Any(r => r.Name == item.Name);
+            if (exists) return null;
+            var region = _mapper.Map<Region>(item);
+            var saved = _regionRepository.Add(region);
+            return _mapper.Map<RegionDto>(saved);           
         }
 
         public bool Delete(int id)
@@ -51,44 +44,48 @@ namespace Service.Services
 
         public IEnumerable<RegionDto> GetAll()
         {
-            return _regionRepository.GetAll().Select(r => new RegionDto
-            {
-                Id = r.Id,
-                Name = r.Name,
-                CenterLatitude = r.CenterLatitude,
-                CenterLongitude = r.CenterLongitude
-            }).ToList();
+            var regions = _regionRepository.GetAll();
+            return _mapper.Map<IEnumerable<RegionDto>>(regions);
         }
         
         public RegionDto? GetById(int id)
         {
             var region = _regionRepository.GetById(id);
             if (region == null) return null;
+            return _mapper.Map<RegionDto>(region);
+        }
 
-            return new RegionDto
-            {
-                Id = region.Id,
-                Name = region.Name,
-                CenterLatitude = region.CenterLatitude,
-                CenterLongitude = region.CenterLongitude
-            };
+        public RegionDto GetByName(string name)
+        {
+            var region = _regionRepository.GetAll().FirstOrDefault(r => r.Name == name);
+            return _mapper.Map<RegionDto>(region);
+            }
+
+        public int GetTotalRegionsCount()
+        {
+            return _regionRepository.GetAll().Count();
         }
 
         public bool Update(int id, RegionDto item)
         {
             var existingRegion = _regionRepository.GetById(id);
             if (existingRegion == null) return false;
-
             var isNameTaken = _regionRepository.GetAll().Any(r => r.Name == item.Name && r.Id != id);
             if (isNameTaken)
             {
-                throw new Exception("קיימים נתונים זהים באזור אחר");
+               return false;
             }
-
-            existingRegion.Name = item.Name;
-            existingRegion.CenterLatitude = item.CenterLatitude;
-            existingRegion.CenterLongitude = item.CenterLongitude;
+            _mapper.Map(item, existingRegion);
             return _regionRepository.Update(id, existingRegion);
+        }
+
+        public bool UpdateCenterPoint(int regionId, double lat, double lng)
+        {
+            var region = _regionRepository.GetById(regionId);
+            if (region == null) return false;
+            region.CenterLatitude = lat;
+            region.CenterLongitude = lng;
+            return _regionRepository.Update(regionId, region);
         }
     }
     
