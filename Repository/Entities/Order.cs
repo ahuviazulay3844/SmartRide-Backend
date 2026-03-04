@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Repository.Entities
 {
-    public enum OrderStatus { Pending, Active, Completed }// (מצב הזמנה (ממתינה, פעילה, הושלמה
+    public enum OrderStatus { Pending, Active, Completed, Canceled }// (מצב הזמנה (ממתינה, פעילה, הושלמה, בוטלה
     public enum PricingType { ByHour, ByDay }// סוג תמחור: לפי שעה/ לפי יום
 
     //טבלת הזמנות   

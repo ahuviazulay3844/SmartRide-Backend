@@ -88,7 +88,7 @@ namespace Service.Services
         {
             var order = _orderRepository.GetById(orderId);
             if (order == null) return false;
-
+            if (order.Status == OrderStatus.Completed || order.Status == OrderStatus.Canceled) return false;
             var user = _userRepository.GetById(order.UserId);
             var car = _carRepository.GetById(order.CarId);
 
@@ -100,7 +100,7 @@ namespace Service.Services
 
             //  חישוב קנס איחור
             order.LateFee = order.EndTime > order.ExpectedEndTime
-                ? (decimal)((order.EndTime.Value.Minute - order.ExpectedEndTime.Minute) * 10)
+                ? (decimal)((order.EndTime.Value - order.ExpectedEndTime).TotalMinutes * 1)
                 : 0;
             user.CompletedOrdersCount++;
             user.Rank = CalculateNewRank(user.CompletedOrdersCount);
@@ -130,8 +130,8 @@ namespace Service.Services
                 }
             }
 
-            // 6. חישוב מחיר סופי ושקלול יתרה/הנחת דרגה
-            order.TotalPrice = order.BasePrice + (decimal)(order.DistanceDrivenKm * 1.5) + order.LateFee + user.AccountBalance;
+            //  חישוב מחיר סופי ושקלול יתרה/הנחת דרגה
+            order.TotalPrice += order.BasePrice + (decimal)(order.DistanceDrivenKm * 1.5) + order.LateFee - user.AccountBalance;
 
             decimal discount = GetRankDiscount(user.Rank);
             if (discount > 0)
@@ -173,7 +173,8 @@ namespace Service.Services
         public bool Update(int id, OrderDto item)
         {
             var existing = _orderRepository.GetById(id);
-            if (existing == null) return false;
+            if (existing == null || !IsUserAuthorized(existing)) return false;
+
             _mapper.Map(item, existing);
             return _orderRepository.Update(id, existing);
         }
@@ -181,10 +182,11 @@ namespace Service.Services
         public bool IsCarBusy(OrderDto item)
         {
             return _orderRepository.GetAll().Any(o =>
-             o.CarId == item.CarId &&
-             o.Status != OrderStatus.Completed &&
-             ((item.StartTime >= o.StartTime && item.StartTime < o.ExpectedEndTime) ||
-              (item.ExpectedEndTime > o.StartTime && item.ExpectedEndTime <= o.ExpectedEndTime)));
+                o.CarId == item.CarId &&
+                o.Status != OrderStatus.Completed &&
+                o.Status != OrderStatus.Canceled && 
+                ((item.StartTime >= o.StartTime && item.StartTime < o.ExpectedEndTime) ||
+                 (item.ExpectedEndTime > o.StartTime && item.ExpectedEndTime <= o.ExpectedEndTime)));
         }
 
         //חישוב מחיר הזמנה בסיסי לפי סוג תמחור וזמן השכרה
@@ -235,12 +237,21 @@ namespace Service.Services
         //פעולת פתחיחת רכב
         public bool UnlockCar(int orderId)
         {
-            var order = _orderRepository.GetById(orderId);
-            if (order == null || order.Status != OrderStatus.Active) return false;
+      
+            //  שליפת המשתמש המחובר מה-Token
+            var currentUserIdClaim = _httpContextAccessor.HttpContext?.User
+                .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            if (currentUserIdClaim == null) return false;
+            int currentUserId = int.Parse(currentUserIdClaim);
+            var order = _orderRepository.GetById(orderId);
+
+            if (order == null || order.Status != OrderStatus.Active || order.UserId != currentUserId)
+            {
+                return false; 
+            }
             var car = _carRepository.GetById(order.CarId);
             if (car == null) return false;
-
             car.IsLocked = false;
             _carRepository.Update(car.Id, car);
             return true;
@@ -248,16 +259,24 @@ namespace Service.Services
         //פעולת נעילת רכב
         public bool LockCar(int orderId)
         {
-            var order = _orderRepository.GetById(orderId);
-            if (order == null || order.Status != OrderStatus.Active) return false;
+            var currentUserIdClaim = _httpContextAccessor.HttpContext?.User
+              .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
+            if (currentUserIdClaim == null) return false;
+            int currentUserId = int.Parse(currentUserIdClaim);
+            var order = _orderRepository.GetById(orderId);
+
+            if (order == null || order.Status != OrderStatus.Active || order.UserId != currentUserId)
+            {
+                return false;
+            }
             var car = _carRepository.GetById(order.CarId);
             if (car == null) return false;
-
             car.IsLocked = true;
             _carRepository.Update(car.Id, car);
             return true;
         }
+        
         //עדכון התקדמות נסיעה - כל דקה להוסיף קילומטרים ולצרוך דלק
         public void UpdateTripProgress(int orderId)
         {
@@ -309,9 +328,101 @@ namespace Service.Services
             return UnlockCar(orderId);
         }
 
-        public bool ReportStartCondition(int orderId, bool isDirty, bool isDamaged)
+        public int GetTotalOrdersCount()
         {
-            throw new NotImplementedException();
+           return _orderRepository.GetAll().Count();
+        }
+        //קבלת הזמנה פעילה של משתמש - אם יש
+        public OrderDto GetActiveOrder()
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext?.User
+           .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int currentUserId))
+            {
+                return null;
+            }
+            var activeOrder = _orderRepository.GetAll()
+                .FirstOrDefault(o => o.UserId == currentUserId &&
+                                    (o.Status == OrderStatus.Active || o.Status == OrderStatus.Pending));
+            return _mapper.Map<OrderDto>(activeOrder);
+        }
+
+        public decimal GetTotalRevenue(DateTime? start, DateTime? end)
+        {
+            var completedOrders = _orderRepository.GetAll()
+                .Where(o => o.Status == OrderStatus.Completed);
+            if (start.HasValue)
+            {
+                completedOrders = completedOrders.Where(o => o.EndTime >= start.Value);
+            }
+            if (end.HasValue)
+            {
+                completedOrders = completedOrders.Where(o => o.EndTime <= end.Value);
+            }
+            return completedOrders.Sum(o => o.TotalPrice);
+        }
+
+        public IEnumerable<OrderDto> GetOrdersByDate(DateTime date)
+        {
+           var orders=_orderRepository.GetAll()
+                .Where(o=>o.StartTime.Date == date.Date);
+           return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        }
+
+        public bool MarkAsPaid(int orderId)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || !IsUserAuthorized(order)) return false;
+
+            order.IsPaid = true;
+            return _orderRepository.Update(order.Id, order);
+        }
+
+        public bool CancelOrder(int orderId)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || !IsUserAuthorized(order) || order.Status != OrderStatus.Pending)
+                return false;
+
+            order.Status = OrderStatus.Canceled;
+            return _orderRepository.Update(orderId, order);
+        }
+
+        public IEnumerable<OrderDto> GetOrdersByDateRange(DateTime start, DateTime end)
+        {
+            var orders = _orderRepository.GetAll()
+                .Where(o => o.StartTime >= start && o.EndTime <= end);
+            return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        }
+
+        public IEnumerable<OrderDto> GetOrdersByUserEmail(string email)
+        {
+            var orders= _orderRepository.GetAll().Where(o => o.User.Email == email);
+            return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        }
+
+        public IEnumerable<OrderDto> GetOrdersByCarNumber(string carNumber)
+        {
+            var orders = _orderRepository.GetAll().Where(o => o.Car.LicensePlate == carNumber);
+            return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        }
+
+        public IEnumerable<OrderDto> GetOrdersByUserId(int userId)
+        {
+            var orders = _orderRepository.GetAll().Where(o => o.UserId == userId);
+            return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        }
+        //בדיקה האם המשתמש מורשה לבצע פעולה על הזמנה מסוימת (בעל ההזמנה או אדמין)
+        private bool IsUserAuthorized(Order order)
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userRole = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (userIdClaim == null || order == null) return false;
+
+            int currentUserId = int.Parse(userIdClaim);
+
+            return userRole == "admin" || order.UserId == currentUserId;
         }
     }
 }
