@@ -11,13 +11,13 @@ namespace Service.Interfaces
 {
     public interface IOrderService: IService<OrderDto>
     {
-            bool FinishOrder(int orderId, int reportedMileage, int fuelTime);
+            Task<bool> FinishOrder(int orderId, int reportedMileage, int fuelTime);
             bool IsCarBusy(OrderDto item);
             decimal CalculateOrderPrice(OrderDto order);
             void UpdateTripProgress(int orderId);
             bool UnlockCar(int orderId); 
             bool LockCar(int orderId);   
-            bool ReportStartCondition(int orderId, bool isDirty, bool isDamaged, string comments); 
+            Task<bool> ReportStartCondition(int orderId, bool isDirty, bool isDamaged, string comments); 
             bool SimulateDrive(int orderId, int kmToAdd);
             int GetTotalOrdersCount();
             OrderDto GetActiveOrder();

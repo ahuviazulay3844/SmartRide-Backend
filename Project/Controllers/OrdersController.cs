@@ -5,6 +5,7 @@ using Repository.Entities;
 using Service.Interfaces;
 using Service.Services;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace Project.Controllers
 {
@@ -47,9 +48,9 @@ namespace Project.Controllers
 
         [HttpPost]
         [Authorize(Roles = "user")]
-        public IActionResult Post([FromBody] OrderDto item)
+        public async Task<IActionResult> Post([FromBody] OrderDto item)
         {
-            var createdOrder = orderService.Add(item);
+            var createdOrder =await orderService.Add(item);
             if (createdOrder == null)
                 return BadRequest(new { message = "הרכב אינו פנוי בזמנים אלו" });
 
@@ -81,16 +82,15 @@ namespace Project.Controllers
 
         [HttpPut("{id}/start-condition")]
         [Authorize(Roles = "user")]
-        public IActionResult ReportStartCondition(int id, bool isDirty, bool isDamaged, string comments)
+        public async Task<IActionResult> ReportStartCondition(int id, [FromQuery] bool isDirty, [FromQuery] bool isDamaged, [FromQuery] string comments)
         {
-            var result = orderService.ReportStartCondition(id, isDirty, isDamaged, comments);
+            var result =await orderService.ReportStartCondition(id, isDirty, isDamaged, comments);
             if (!result)
             {
                 return BadRequest(new { message = "דיווח נכשל: ההזמנה לא נמצאה או שאינה במצב המתנה" });
             }
             return Ok(new { message = "הדיווח התקבל בהצלחה, הרכב נפתח" });
         }
-
         [HttpPost("{id}/unlock")]
         [Authorize(Roles = "user")]
         public IActionResult Unlock(int id)
@@ -111,9 +111,9 @@ namespace Project.Controllers
 
         [HttpPatch("{id}/finish")]
         [Authorize(Roles = "user")]
-        public IActionResult Finish(int id, [FromQuery] int mileage, [FromQuery] int fuelTime)
+        public async Task<IActionResult> Finish(int id, [FromQuery] int mileage, [FromQuery] int fuelTime)
         {
-            var result = orderService.FinishOrder(id, mileage, fuelTime);
+            var result =await orderService.FinishOrder(id, mileage, fuelTime);
             if (!result) return BadRequest(new { message = "סיום ההזמנה נכשל" });
             return Ok(new { message = "הנסיעה הסתיימה בהצלחה" });
         }
@@ -205,6 +205,19 @@ namespace Project.Controllers
         public IActionResult GetOrdersByUserId(int userId)
         {
             return Ok(orderService.GetOrdersByUserId(userId));
+        }
+
+
+        [HttpPost("{id}/submit-start-report")]
+        [Authorize]
+        public async Task<IActionResult> SubmitStartReport(int id, [FromQuery] bool isDirty, [FromQuery] bool isDamaged, [FromQuery] string comments)
+        {
+            var success = await orderService.ReportStartCondition(id, isDirty, isDamaged, comments);
+            if (!success)
+            {
+                return BadRequest(new { message = "חלה שגיאה בעיבוד הדיווח. וודא שאתה ליד הרכב." });
+            }
+            return Ok(new { message = "הדיווח התקבל בהצלחה! הרכב נפתח, נסיעה טובה." });
         }
     }
 }

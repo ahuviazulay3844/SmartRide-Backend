@@ -21,17 +21,19 @@ namespace Service.Services
         private readonly IRepository<Car> _carRepository;
         private readonly IRepository<User> _userRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IEmailService _emailService;
         private readonly IMapper _mapper;
 
-        public OrderService(IRepository<Order> orderRepository, IRepository<Car> carRepository, IRepository<User> userRepository, IHttpContextAccessor httpContextAccessor, IMapper mapper)
+        public OrderService(IRepository<Order> orderRepository, IRepository<Car> carRepository, IRepository<User> userRepository, IHttpContextAccessor httpContextAccessor, IEmailService emailService,IMapper mapper)
         {
             _orderRepository = orderRepository;
             _carRepository = carRepository;
             _userRepository = userRepository;
             _httpContextAccessor = httpContextAccessor;
+            _emailService = emailService;
             _mapper = mapper;
         }
-        public OrderDto Add(OrderDto item)
+        public async Task<OrderDto> Add(OrderDto item)
         {
             var userIdStr = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             int currentUserId = int.Parse(userIdStr ?? "0");
@@ -53,12 +55,24 @@ namespace Service.Services
             {
                 newOrder.PricingType = PricingType.ByHour;
             }
-            int age = DateTime.Now.Year - newOrder.User.DateOfBirth.Year;
+            int age = DateTime.Now.Year - user.DateOfBirth.Year;
             if (age < 24) { newOrder.User.IsNewDriver = true; }
             newOrder.UserId = currentUserId;
-            newOrder.BasePrice = basePrice; newOrder.Status = OrderStatus.Pending;
+            newOrder.BasePrice = basePrice;
+            newOrder.Status = OrderStatus.Pending;
             newOrder.IsPaid = false;
             var saved = _orderRepository.Add(newOrder);
+            if (saved != null)
+            {
+                try
+                {
+                    await _emailService.SendOrderConfirmationAsync(user.Email, saved.Id, car.Model);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Email failed for order {saved.Id}: {ex.Message}");
+                }
+            }
             return _mapper.Map<OrderDto>(saved);
         }
         public bool Delete(int id)
@@ -84,7 +98,7 @@ namespace Service.Services
             return _orderRepository.Exists(id);
         }
 
-        public bool FinishOrder(int orderId, int reportedMileage, int fuelTime)
+        public async Task<bool>  FinishOrder(int orderId, int reportedMileage, int fuelTime)
         {
             var order = _orderRepository.GetById(orderId);
             if (order == null) return false;
@@ -129,7 +143,6 @@ namespace Service.Services
                     order.TotalPrice += car.Seats > 5 ? 50 : 40;
                 }
             }
-
             //  חישוב מחיר סופי ושקלול יתרה/הנחת דרגה
             order.TotalPrice += order.BasePrice + (decimal)(order.DistanceDrivenKm * 1.5) + order.LateFee - user.AccountBalance;
 
@@ -146,8 +159,20 @@ namespace Service.Services
             _orderRepository.Update(order.Id, order);
             _carRepository.Update(car.Id, car);
             _userRepository.Update(user.Id, user);
-
-            return true;
+            // שליחת קבלה סופית למייל המשתמש
+            var orderDto = _mapper.Map<OrderDto>(order);
+            orderDto.UserFullName = $"{user.FirstName} {user.LastName}";
+            orderDto.CarModel = car.Model;
+            try
+            {
+                await _emailService.SendFinalReceiptAsync(user.Email, orderDto);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("שגיאה בשליחת מייל: " + ex.Message);
+            }
+            return false;
         }
         private UserRank CalculateNewRank(int completedOrders)
         {
@@ -306,26 +331,63 @@ namespace Service.Services
             }
         }
         //דיווח על מצב הרכב בתחילת נסיעה - אם הרכב מלוכלך או פגום, להטיל קנס על המשתמש הקודם
-        public bool ReportStartCondition(int orderId, bool isDirty, bool isDamaged, string comments)
+        public async Task<bool> ReportStartCondition(int orderId, bool isDirty, bool isDamaged, string comments)
         {
+            // 1. שליפת ההזמנה הנוכחית
             var order = _orderRepository.GetById(orderId);
             if (order == null) return false;
+
+            // 2. בדיקה אם יש דיווח על בעיה מצד הנהג שנכנס עכשיו לרכב
             if (isDirty || isDamaged)
             {
+                // מחפשים את ההזמנה האחרונה שהסתיימה לפני זו, כדי למצוא את הנהג שהשאיר את הרכב כך
                 var lastCompletedOrder = _orderRepository.GetAll()
-                    .Where(o => o.CarId == order.CarId && o.Status == OrderStatus.Completed)
+                    .Where(o => o.CarId == order.CarId && o.Id != orderId)
                     .OrderByDescending(o => o.EndTime)
                     .FirstOrDefault();
+
                 if (lastCompletedOrder != null)
                 {
                     var previousUser = _userRepository.GetById(lastCompletedOrder.UserId);
-                    previousUser.AccountBalance -= 50;
-                    _userRepository.Update(previousUser.Id, previousUser);
+                    if (previousUser != null)
+                    {
+                        decimal fine = 0;
+                        string fineReason = "";
+
+                        if (isDirty)
+                        {
+                            fine += 50; // קנס על השארת רכב מלוכלך
+                            previousUser.DirtyReportsCount++;
+                            fineReason += "אי-ניקיון הרכב; ";
+                        }
+                        if (isDamaged)
+                        {
+                            fine += 150; // קנס על נזק שלא דווח
+                            fineReason += "נזק שלא דווח בסיום נסיעה; ";
+                        }
+
+                        // עדכון המאזן הכספי של הנהג הקודם
+                        previousUser.AccountBalance -= fine;
+                        _userRepository.Update(previousUser.Id, previousUser);
+
+                        //  שליחת הודעה  במייל לנהג הקודם על החיוב 
+                        try
+                        {
+                            await _emailService.SendFineNotificationAsync(previousUser.Email, fine, fineReason);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"שגיאה בשליחת מייל חיוב: {ex.Message}");
+                        }
+                    }
                 }
             }
+
             order.ConditionNotes = comments;
             order.Status = OrderStatus.Active;
-            return UnlockCar(orderId);
+            _orderRepository.Update(order.Id, order);
+
+            return  UnlockCar(orderId);
         }
 
         public int GetTotalOrdersCount()
