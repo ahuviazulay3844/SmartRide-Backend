@@ -20,16 +20,18 @@ namespace Service.Services
     {
         private readonly IConfiguration _configuration;
         private readonly IRepository<User> _userRepository;
+        private readonly IEmailService _emailService;
         private readonly IHttpContextAccessor _httpContextAccessor;//בשביל לדעת מי המשתמש?
         private readonly IMapper _mapper;
-        public UserService(IConfiguration configuration, IRepository<User> userRepository, IHttpContextAccessor httpContextAccessor, IMapper mapper)
+        public UserService(IConfiguration configuration, IRepository<User> userRepository, IHttpContextAccessor httpContextAccessor, IMapper mapper, IEmailService emailService)
         {
             this._userRepository = userRepository;
             this._configuration = configuration;
             _httpContextAccessor = httpContextAccessor;
             _mapper = mapper;
+            _emailService = emailService;
         }
-        public UserDto Add(UserDto item)
+        public async Task<UserDto> Add(UserDto item)
         {
             var isEmailTaken = _userRepository.GetAll().Any(u => u.Email == item.Email);
             if (isEmailTaken) { return null; }
@@ -39,6 +41,17 @@ namespace Service.Services
             newUser.IsBlocked = false;
             newUser.Rank = UserRank.Regular;
             var savedUser = _userRepository.Add(newUser);
+            if (savedUser != null)
+            {
+                try
+                {
+                    await _emailService.SendWelcomeEmailAsync(savedUser.Email, savedUser.FirstName);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Welcome email failed for {savedUser.Email}: {ex.Message}");
+                }
+            }
             return _mapper.Map<UserDto>(savedUser);
         }
 
@@ -180,6 +193,48 @@ namespace Service.Services
         public int GetTotalUsersCount()
         {
             return _userRepository.GetAll().Count();
+        }
+        // בקשת איפוס סיסמה: יצירת קוד, שמירתו במסד ושליחת מייל למשתמש
+        public async Task<bool> RequestPasswordReset(string email)
+        {
+            var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == email);
+            if (user == null || user.IsBlocked) return false;
+
+            // יצירת קוד בן 6 ספרות
+            string resetCode = new Random().Next(100000, 999999).ToString();
+
+            user.PasswordResetCode = resetCode;
+            user.ResetCodeExpiration = DateTime.Now.AddMinutes(5);
+
+            _userRepository.Update(user.Id, user);
+
+            try
+            {
+                // שליחת המייל עם הקוד
+                await _emailService.SendPasswordResetAsync(user.Email, resetCode);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to send reset email: {ex.Message}");
+                return false;
+            }
+        }
+        // איפוס סיסמה: בדיקת הקוד, עדכון הסיסמה ומחיקת הקוד
+        public bool ResetPassword(string email, string code, string newPassword)
+        {
+            var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == email);
+            if (user == null ||
+                user.PasswordResetCode != code ||
+                user.ResetCodeExpiration < DateTime.Now)
+            {
+                return false;
+            }
+            user.PasswordHash = newPassword;
+            user.PasswordResetCode = null;
+            user.ResetCodeExpiration = null;
+            _userRepository.Update(user.Id, user);
+            return true;
         }
     }
 }

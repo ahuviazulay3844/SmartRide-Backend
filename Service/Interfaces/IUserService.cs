@@ -16,7 +16,8 @@ namespace Service.Interfaces
         bool ToggleBlockUser(int userId);
         UserDto GetCurrentUser();
         int GetTotalUsersCount();
-
+        bool ResetPassword(string email, string code, string newPassword);
+        Task<bool> RequestPasswordReset(string email);
 
 
     }

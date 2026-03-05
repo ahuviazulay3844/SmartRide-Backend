@@ -55,7 +55,9 @@ namespace Repository.Entities
         public int DirtyReportsCount { get; set; } = 0; // מונה דיווחי לכלוך מהשוכר הבא
         public bool IsBlocked { get; set; } = false; // האם חסום לשימוש
 
-
+        // --- שדות עבור שחזור סיסמה ---
+        public string? PasswordResetCode { get; set; } // הקוד שנשלח למייל ")
+        public DateTime? ResetCodeExpiration { get; set; } // מתי הקוד מפסיק לעבוד
 
 
         // --- קשרים ורשימות ---

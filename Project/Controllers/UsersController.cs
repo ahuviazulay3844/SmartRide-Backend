@@ -1,5 +1,6 @@
 ﻿using Common.Dto;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Service.Interfaces;
@@ -7,6 +8,7 @@ using Service.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Project.Controllers
 {
@@ -50,9 +52,9 @@ namespace Project.Controllers
         }
 
         [HttpPost]
-        public IActionResult Post([FromBody] UserDto item)
+        public async Task<IActionResult> Post([FromBody] UserDto item)
         {
-            var created = userService.Add(item);
+            var created =await userService.Add(item);
             if (created == null)
                 return BadRequest(new { message = "משתמש עם אימייל זה כבר קיים במערכת" });
 
@@ -103,7 +105,7 @@ namespace Project.Controllers
 
         [HttpPatch("toggle-block/{userId}")]
         [Authorize(Roles = "admin")]
-        public IActionResult ToggleBlockUser(int userId)
+        public async Task<IActionResult> ToggleBlockUser(int userId)
         {
             var result = userService.ToggleBlockUser(userId);
             if (!result)
@@ -128,6 +130,25 @@ namespace Project.Controllers
         {
             var count = userService.GetTotalUsersCount();
             return Ok(new { total = count });
+        }
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] string email)
+        {
+            var result = await userService.RequestPasswordReset(email);
+            return Ok(new { message = "אם המייל קיים במערכת, קוד איפוס נשלח אליו כעת" });
+        }
+
+        [HttpPost("reset-password")]
+        public IActionResult ResetPassword([FromQuery] string email, [FromQuery] string code, [FromQuery] string newPassword)
+        {
+            var result = userService.ResetPassword(email, code, newPassword);
+
+            if (!result)
+            {
+                return BadRequest(new { message = "האיפוס נכשל: קוד שגוי או פג תוקף" });
+            }
+
+            return Ok(new { message = "הסיסמה עודכנה בהצלחה" });
         }
     }
 }
