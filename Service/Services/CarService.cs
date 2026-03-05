@@ -24,7 +24,7 @@ namespace Service.Services
             _orderRepository = orderRepository;
             _mapper = mapper;
         }
-        public CarDto Add(CarDto item)
+        public async Task<CarDto> Add(CarDto item)
         {
             var isLicenseTaken = _carRepository.GetAll().Any(c => c.LicensePlate == item.LicensePlate);
             if (isLicenseTaken)

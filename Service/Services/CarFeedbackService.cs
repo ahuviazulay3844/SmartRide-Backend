@@ -26,7 +26,7 @@ namespace Service.Services
             _mapper = mapper;
         }
 
-        public CarFeedbackDto Add(CarFeedbackDto item)
+        public async Task<CarFeedbackDto> Add(CarFeedbackDto item)
         {
             var userIdStr = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             int userId = int.Parse(userIdStr ?? "0");

@@ -22,7 +22,7 @@ namespace Service.Services
             _regionRepository = regionRepository;
             _mapper = mapper;
         }
-        public RegionDto Add(RegionDto item)
+        public async Task<RegionDto> Add(RegionDto item)
         {
             var exists = _regionRepository.GetAll().Any(r => r.Name == item.Name);
             if (exists) return null;

@@ -24,15 +24,17 @@ namespace Service.Services
             _mapper = mapper;
 
         }
-        public CouponDto Add(CouponDto item)
+        public async Task<CouponDto> Add(CouponDto item)
         {
             var isCodeTaken = _couponRepository.GetAll().Any(c => c.Code == item.Code);
             if (isCodeTaken)
             {
-                return null;    
+                return null;
             }
+
             Coupon newCoupon = _mapper.Map<Coupon>(item);
             var saved = _couponRepository.Add(newCoupon);
+
             return _mapper.Map<CouponDto>(saved);
         }
 

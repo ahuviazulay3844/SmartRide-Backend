@@ -10,7 +10,7 @@ namespace Service.Interfaces
     {
         IEnumerable<T> GetAll();
         T? GetById(int id);
-        T Add(T item);
+        Task<T> Add(T item);
         bool Update(int id, T item);
         bool Delete(int id);
         bool Exists(int id);
