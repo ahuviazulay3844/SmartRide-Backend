@@ -1,4 +1,5 @@
 ﻿using Common.Dto;
+using Microsoft.Extensions.Options;
 using Repository.Entities;
 using Service.Interfaces;
 using System;
@@ -13,22 +14,27 @@ namespace Service.Services
 {
     public class EmailService : IEmailService
     {
+        private readonly EmailSettings _settings;
+        public EmailService(IOptions<EmailSettings> options)
+        {
+            _settings = options.Value;
+        }
         // מימוש שליחת מייל בסיסי   
         public async Task SendEmailAsync(string toEmail, string subject, string htmlMessage)
         {
-            var client = new SmtpClient("smtp.gmail.com", 587)
+            var client = new SmtpClient(_settings.SmtpServer, _settings.Port)
             {
                 EnableSsl = true,
                 UseDefaultCredentials = false,
-                Credentials = new NetworkCredential("citydrive.system@gmail.com", "zfie iqgd vjmk jjnw")
+                Credentials = new NetworkCredential(_settings.SenderEmail, _settings.SenderPassword)
             };
 
             var mailMessage = new MailMessage
             {
-                From = new MailAddress("citydrive.system@gmail.com", "CityDrive System"),
+                From = new MailAddress(_settings.SenderEmail, "CityCar"),
                 Subject = subject,
                 Body = htmlMessage,
-                IsBodyHtml = true // מאפשר לנו לשלוח מייל מעוצב
+                IsBodyHtml = true // מאפשר לשלוח מייל מעוצב
             };
 
             mailMessage.To.Add(toEmail);
@@ -130,11 +136,11 @@ namespace Service.Services
         {
             string message = $@"
         <div style='direction: rtl; font-family: ""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; padding: 30px; border-radius: 15px; text-align: center; background-color: #ffffff;'>
-            <h1 style='color: #2c3e50; font-size: 24px;'>ברוך הבא למשפחת CityDrive, {userName}!</h1>
+            <h1 style='color: #2c3e50; font-size: 24px;'>{userName}, CityCar ברוך הבא למשפחת</h1>
             
             <p style='font-size: 18px; color: #34495e; line-height: 1.6;'>
-                אנחנו נרגשים ומלאי הערכה על כך שבחרת להצטרף אלינו. 
-                בחירתך ב-<b>CityDrive</b> אינה מובנת מאליה, ואנו מחויבים להעניק לך את חוויית הנסיעה הטובה, הבטוחה והאיכותית ביותר שיש.
+                אנחנו נרגשים ומלאי הערכה על כך שבחרת להצטרף אלינו.
+                בחירתך ב-<b>CityCar</b> אינה מובנת מאליה, ואנו מחויבים להעניק לך את חוויית הנסיעה הטובה, הבטוחה והאיכותית ביותר שיש.
             </p>
 
             <div style='background-color: #f9f9f9; padding: 20px; border-radius: 10px; margin: 25px 0;'>
@@ -150,11 +156,11 @@ namespace Service.Services
 
             <p style='margin-top: 40px; font-weight: bold; color: #2c3e50;'>
                 בברכה ובהערכה רבה,<br>
-                צוות CityDrive
+                צוות CityCar
             </p>
             
             <hr style='border: 0; border-top: 1px solid #eee; margin: 20px 0;'>
-            <small style='color: #bdc3c7;'>נשלח באהבה ממערכת ניהול הרכבים החכמה שלך</small>
+            //<small style='color: #bdc3c7;'>נשלח באהבה ממערכת ניהול הרכבים החכמה שלך</small>
         </div>";
 
             await SendEmailAsync(userEmail, $"ברוכים הבאים ל-CityDrive! אנחנו כל כך שמחים שאתה איתנו", message);

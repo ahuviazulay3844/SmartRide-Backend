@@ -1,17 +1,18 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using AutoMapper;
+﻿using AutoMapper;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Repository;
 using Service.Interfaces; 
 using Service.Services;
-using Repository;
 
 namespace Service.Services
 
 {
     public static class ExtensionService
     {
-        public static IServiceCollection AddServices(this IServiceCollection services)
-        {
-            
+        public static IServiceCollection AddServices(this IServiceCollection services, IConfiguration configuration)
+        {      
             services.AddRepository();          
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<ICarService, CarService>();
@@ -20,7 +21,7 @@ namespace Service.Services
             services.AddScoped<IRegionService, RegionService>();
             services.AddScoped<ICouponService, CouponService>();
             services.AddAutoMapper(typeof(MapperProfile));
-            services.AddScoped<IEmailService, EmailService>();
+            services.Configure<EmailSettings>(configuration.GetSection("EmailSettings")); services.AddScoped<IEmailService, EmailService>();
             services.AddHttpContextAccessor();
             return services;
         }
