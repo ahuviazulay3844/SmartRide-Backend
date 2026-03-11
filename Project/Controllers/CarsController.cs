@@ -33,6 +33,7 @@ namespace Project.Controllers
         }
 
         [HttpPost]
+        [Authorize (Roles = "admin")]
         public IActionResult Post([FromBody] CarDto car)
         {
             var newCar = carService.Add(car);
