@@ -35,11 +35,21 @@ namespace Repository.Entities
 
         // --- נתוני רישיון נהיגה ---
 
-        [Required, MaxLength(50)]
+        [Required, MaxLength(8)]
         public string LicenseNumber { get; set; }// מספר רישיון נהיגה   
-        public string? LicenseImageUri { get; set; }// קישור לתמונת רישיון נהיגה
         public DateTime LicenseExpirationDate { get; set; }// תאריך תפוגת רישיון נהיגה
-        public bool IsLicenseVerified { get; set; } = false;     // האם הרישיון אושר על ידי מנהל המערכת
+        public bool IsLicenseVerified { get; set; } = false;     // האם הרישיון אושר על ידי מנהל המערכת                                                     
+        public string? LicenseFrontImg { get; set; } // תמונת רישיון - צד קדמי
+        public string? LicenseBackImg { get; set; }  // תמונת רישיון - צד אחורי
+        public string? SelfieImg { get; set; }       // תמונת סלפי לאימות מול הרישיון
+
+        //  שדות  לאזרח חו"ל 
+        public bool IsForeignCitizen { get; set; } = false; // האם המשתמש אזרח חו"ל
+        public string? PassportNumber { get; set; }  // מספר דרכון (במקום ת"ז)
+        public string? PassportImg { get; set; }     // תמונת דרכון
+        public string? VisaImg { get; set; }         // תמונת ויזה
+        public string? EntryPermitImg { get; set; }  // תמונת אישור כניסה לישראל
+        public string? CountryOfOrigin { get; set; } // מדינת מקור
         public bool IsNewDriver { get; set; } = false; // האם  נהג חדש
 
 

@@ -22,5 +22,18 @@ namespace Common.Dto
         public bool IsBlocked { get; set; }
         public string LicenseNumber { get; set; }
         public string UserType { get; set; }
+        public string? LicenseFrontImg { get; set; }
+        public string? LicenseBackImg { get; set; }
+        public string? SelfieImg { get; set; }
+        // --- שדות אזרח חו"ל ---
+        public bool IsForeignCitizen { get; set; }
+        public string? PassportNumber { get; set; }
+        public string? PassportImg { get; set; }
+        public string? VisaImg { get; set; }
+        public string? EntryPermitImg { get; set; }
+        public string? CountryOfOrigin { get; set; }
+        public bool IsNewDriver { get; set; }
+        public DateTime DateOfBirth { get; set; }
+        public DateTime LicenseExpirationDate { get; set; }
     }
 }
