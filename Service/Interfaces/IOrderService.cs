@@ -14,20 +14,25 @@ namespace Service.Interfaces
             Task<bool> FinishOrder(int orderId, int reportedMileage, int fuelTime);
             bool IsCarBusy(OrderDto item);
             decimal CalculateOrderPrice(OrderDto order);
-            void UpdateTripProgress(int orderId);
+            int UpdateTripProgress(int orderId);
             bool UnlockCar(int orderId); 
-            bool LockCar(int orderId);   
-            Task<bool> ReportStartCondition(int orderId, bool isDirty, bool isDamaged, string comments); 
+            bool LockCar(int orderId);
+        Task<bool> ReportStartCondition(int orderId, CarInspectionDto dto);
             bool SimulateDrive(int orderId, int kmToAdd);
+            Task<bool> UpdateStatusAsync(int id, Common.Dto.OrderStatus newStatus);
             int GetTotalOrdersCount();
             OrderDto GetActiveOrder();
             decimal GetTotalRevenue(DateTime? start, DateTime? end);
             IEnumerable<OrderDto> GetOrdersByDate(DateTime date);
-            bool MarkAsPaid(int orderId);
+            Task<bool> MarkAsPaid(int orderId);
             bool CancelOrder(int orderId);
             IEnumerable<OrderDto> GetOrdersByDateRange(DateTime start, DateTime end);
             IEnumerable<OrderDto> GetOrdersByUserEmail(string email);
             IEnumerable<OrderDto> GetOrdersByCarNumber(string carNumber);
             IEnumerable<OrderDto> GetOrdersByUserId(int userId);
+            object GetCarAvailabilityInfo(int carId);
+            bool IsUserOverlap(int userId, DateTime start, DateTime end);
+           //Task<bool> ProcessStartInspection(int orderId, CarInspectionDto reportDto);
+
     }
 }

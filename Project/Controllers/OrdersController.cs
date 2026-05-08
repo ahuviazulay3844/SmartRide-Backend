@@ -47,7 +47,7 @@ namespace Project.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "user")]
+       // [Authorize(Roles = "user")]
         public async Task<IActionResult> Post([FromBody] OrderDto item)
         {
             var createdOrder =await orderService.Add(item);
@@ -80,17 +80,7 @@ namespace Project.Controllers
             return Ok(new { message = "ההזמנה בוטלה בהצלחה" });
         }
 
-        [HttpPut("{id}/start-condition")]
-        [Authorize(Roles = "user")]
-        public async Task<IActionResult> ReportStartCondition(int id, [FromQuery] bool isDirty, [FromQuery] bool isDamaged, [FromQuery] string comments)
-        {
-            var result =await orderService.ReportStartCondition(id, isDirty, isDamaged, comments);
-            if (!result)
-            {
-                return BadRequest(new { message = "דיווח נכשל: ההזמנה לא נמצאה או שאינה במצב המתנה" });
-            }
-            return Ok(new { message = "הדיווח התקבל בהצלחה, הרכב נפתח" });
-        }
+    
         [HttpPost("{id}/unlock")]
         [Authorize(Roles = "user")]
         public IActionResult Unlock(int id)
@@ -113,17 +103,34 @@ namespace Project.Controllers
         [Authorize(Roles = "user")]
         public async Task<IActionResult> Finish(int id, [FromQuery] int mileage, [FromQuery] int fuelTime)
         {
-            var result =await orderService.FinishOrder(id, mileage, fuelTime);
-            if (!result) return BadRequest(new { message = "סיום ההזמנה נכשל" });
-            return Ok(new { message = "הנסיעה הסתיימה בהצלחה" });
+            var result = await orderService.FinishOrder(id, mileage, fuelTime);
+
+            if (!result)
+            {
+                return BadRequest(new { message = "סיום ההזמנה נכשל - וודא שנתוני הקילומטראז' תקינים וההזמנה קיימת" });
+            }
+
+            return Ok(new { message = "הנסיעה הסתיימה בהצלחה, תודה שהשתמשת ב-Smart-Ride!" });
         }
 
+        //[HttpPost("{id}/update-progress")]
+        //[Authorize(Roles = "user")]
+        //public IActionResult UpdateProgress(int id)
+        //{
+        //    orderService.UpdateTripProgress(id);
+        //    return Ok(new { message = "התקדמות הנסיעה עודכנה" });
+        //}
         [HttpPost("{id}/update-progress")]
         [Authorize(Roles = "user")]
         public IActionResult UpdateProgress(int id)
         {
-            orderService.UpdateTripProgress(id);
-            return Ok(new { message = "התקדמות הנסיעה עודכנה" });
+            int currentTotalKm = orderService.UpdateTripProgress(id);
+
+            return Ok(new
+            {
+                message = "התקדמות הנסיעה עודכנה בבסיס הנתונים",
+                totalAccumulatedKm = currentTotalKm
+            });
         }
         [HttpGet("count")]
         [Authorize(Roles = "admin")]
@@ -159,11 +166,13 @@ namespace Project.Controllers
 
         [HttpPatch("mark-as-paid/{orderId}")]
         [Authorize]
-        public IActionResult MarkAsPaid(int orderId)
+        public async Task<IActionResult> MarkAsPaid(int orderId)
         {
-            var result = orderService.MarkAsPaid(orderId);
+            var result = await orderService.MarkAsPaid(orderId);
             if (!result)
+            {
                 return BadRequest(new { message = "עדכון תשלום נכשל - הזמנה לא נמצאה" });
+            }
             return Ok(new { message = "ההזמנה סומנה כנפרעת בהצלחה" });
         }
 
@@ -201,23 +210,71 @@ namespace Project.Controllers
         }
 
         [HttpGet("user/{userId}")]
-        [Authorize(Roles = "admin")]
+        [Authorize]
         public IActionResult GetOrdersByUserId(int userId)
         {
             return Ok(orderService.GetOrdersByUserId(userId));
         }
 
 
+        //[HttpPost("{id}/submit-start-report")]
+        //[Authorize]
+        //public async Task<IActionResult> SubmitStartReport(int id, [FromQuery] bool isDirty, [FromQuery] bool isDamaged, [FromQuery] string comments)
+        //{
+        //    var success = await orderService.ReportStartCondition(id, isDirty, isDamaged, comments);
+        //    if (!success)
+        //    {
+        //        return BadRequest(new { message = "חלה שגיאה בעיבוד הדיווח. וודא שאתה ליד הרכב." });
+        //    }
+        //    return Ok(new { message = "הדיווח התקבל בהצלחה! הרכב נפתח, נסיעה טובה." });
+        //}
+        //[HttpGet("track/{orderId}")]
+        //public IActionResult GetTripProgress(int orderId)
+        //{
+        //    // שואלים את ה-Service מה המרחק העדכני שרשום בדאטה-בייס
+        //    var order = orderService.GetOrdersByUserId(orderId);
+
+        //    if (order != null)
+        //    {
+        //        return Ok(new { accumulatedKm = order.DistanceDrivenKm });
+        //    }
+
+        //    return Ok(new { accumulatedKm = 0 });
+        //}
         [HttpPost("{id}/submit-start-report")]
-        [Authorize]
-        public async Task<IActionResult> SubmitStartReport(int id, [FromQuery] bool isDirty, [FromQuery] bool isDamaged, [FromQuery] string comments)
+        [Authorize(Roles = "user")]
+        public async Task<IActionResult> SubmitStartReport(int id, [FromBody] CarInspectionDto report)
         {
-            var success = await orderService.ReportStartCondition(id, isDirty, isDamaged, comments);
+            // קריאה ל-Service עם ה-DTO החדש שכולל פנצ'ר
+            var success = await orderService.ReportStartCondition(id, report);
+
             if (!success)
             {
-                return BadRequest(new { message = "חלה שגיאה בעיבוד הדיווח. וודא שאתה ליד הרכב." });
+                return BadRequest(new { message = "חלה שגיאה בעיבוד הדיווח. וודא שההזמנה קיימת." });
             }
             return Ok(new { message = "הדיווח התקבל בהצלחה! הרכב נפתח, נסיעה טובה." });
+        }
+
+        //// פונקציה 2: מקבלת אובייקט שלם מהטופס (Body)
+        //[HttpPost("{id}/submit-start-report")] // השארתי את הכתובת המקורית
+        //[Authorize(Roles = "user")]
+        //public async Task<IActionResult> SubmitStartReportBody(int id, [FromBody] CarInspectionDto report)
+        //{
+        //    var success = await orderService.ProcessStartInspection(id, report);
+
+        //    if (!success)
+        //        return BadRequest(new { message = "חלה שגיאה בעיבוד הדיווח או שההזמנה לא קיימת" });
+
+        //    return Ok(new { message = "הדיווח התקבל, הרכב נפתח. נסיעה טובה!" });
+        //}
+        // בתוך OrdersController.cs
+        [HttpGet("check-user-overlap")]
+        public IActionResult CheckUserOverlap([FromQuery] int userId, [FromQuery] DateTime start, [FromQuery] DateTime end)
+        {
+            // ה-Controller רק קורא ל-Service ומעביר את התשובה הלאה
+            var hasOverlap = orderService.IsUserOverlap(userId, start, end);
+
+            return Ok(new { hasOverlap });
         }
     }
 }

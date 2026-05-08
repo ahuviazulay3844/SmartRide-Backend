@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Repository.Entities
 {
-    public enum OrderStatus { Pending, Active, Completed, Canceled }// (מצב הזמנה (ממתינה, פעילה, הושלמה, בוטלה
+    public enum OrderStatus { Pending = 0, Active = 1, Completed = 2, Canceled = 3 }
     public enum PricingType { ByHour, ByDay }// סוג תמחור: לפי שעה/ לפי יום
 
     //טבלת הזמנות   
@@ -17,18 +17,17 @@ namespace Repository.Entities
         // --- זמנים (לחישוב קנס איחור) ---
         public DateTime StartTime { get; set; } //זמן התחלה של ההזמנה
         public DateTime ExpectedEndTime { get; set; } //זמן שצריך להסתיים ההזמנה-לפי מה שהוזמן  
+        public int TotalDays { get; set; }// כמה ימים הוזמן
+        public int TotalHours { get; set; }// כמה שעות הוזמן
         public DateTime? EndTime { get; set; } //זמן סיום של ההזמנה בפועל  
-
+        public DateTime? ActualOpeningTime { get; set; } // הזמן בו נלחץ "פתח רכב" לראשונה
+        public bool IsInspectionSubmitted { get; set; } // האם השאלון כבר מולא?
 
         // --- קילומטראז' - לחישוב מרחק  ---
         public int StartMileage { get; set; } // כמה היה לרכב כשיצא
         public int? EndMileage { get; set; } // כמה היה לרכב כשחזר
         public int? DistanceDrivenKm { get; set; } // כמה קילומטרים נסע בפועל
-
-
         // --- מחירים ותשלומים ---
-
-
         public decimal BasePrice { get; set; } // מחיר לפי ימים/שעות
         public decimal LateFee { get; set; } = 0; // קנס איחור-מחושב
         public decimal TotalPrice { get; set; } //מחיר סופי של ההזמנה
@@ -43,10 +42,10 @@ namespace Repository.Entities
 
         // --- דלק ודיווחים ---
         public bool DidCustomerRefuel { get; set; } = false; // האם מילא דלק-בשביל הבונוס
-        public bool ReportedDirty { get; set; } = false; // האם דווח שהחזיר מלוכלך-אם יערער
+        //public bool ReportedDirty { get; set; } = false; // האם דווח שהחזיר מלוכלך-אם יערער
         public string? ConditionNotes { get; set; } // יקבל מהמייל- הערות חופשיות על מצב הרכב
 
-
+        public virtual CarInspection? Inspection { get; set; } // מאפשר גישה לדיווח מתוך ההזמנה
 
         //קישורים לטבלאות אחרות
 
