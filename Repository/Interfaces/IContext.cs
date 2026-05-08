@@ -16,6 +16,7 @@ namespace Repository.Interfaces
         DbSet<Region> Regions { get; set; }
         DbSet<Coupon> Coupons { get; set; }
         DbSet<CarFeedback> Feedbacks { get; set; }
+        DbSet<CarInspection> CarInspections { get; set; }
         public void Save();
 
     }
