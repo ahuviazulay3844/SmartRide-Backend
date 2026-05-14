@@ -23,14 +23,15 @@ namespace Project.Controllers
             this.userService = userService;
         }
 
-
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginDto l)
+        public IActionResult Login([FromBody] LoginDto loginDto)
         {
-            var token = userService.Login(l);
-            if (token == null )
-                return Unauthorized(new { message = "שם משתמש או סיסמה שגויים" });
-            return Created("",new { message = "התחברת בהצלחה, ברוך הבא לסיטי קאר!", token = token });
+            var token = userService.Login(loginDto);
+            if (string.IsNullOrEmpty(token))
+            {
+                return Unauthorized(new { message = "אימייל או סיסמה שגויים, או שהמשתמש חסום" });
+            }
+            return Ok(token);
         }
 
         [HttpGet]
@@ -47,20 +48,24 @@ namespace Project.Controllers
             var user = userService.GetById(id);
             if (user == null)
                 return NotFound(new { message = "המשתמש לא נמצא" });
-
             return Ok(user);
         }
 
-        [HttpPost]
+        [HttpPost("register")]
         public async Task<IActionResult> Post([FromBody] UserDto item)
         {
-            var created =await userService.Add(item);
-            if (created == null)
+            if (item == null) return BadRequest(new { message = "נתונים חסרים" });
+            var createdUser = await userService.Add(item);
+            if (createdUser == null)
+            {
                 return BadRequest(new { message = "משתמש עם אימייל זה כבר קיים במערכת" });
-
-            return Created("", new { message = "נרשמת בהצלחה למערכת סיטי קאר!", data = created });
+            }
+            return Ok(new
+            {
+                message = "נרשמת בהצלחה למערכת סיטי קאר!",
+                data = createdUser
+            });
         }
-
         [HttpPut("{id}")]
         [Authorize(Roles = "user")]
         public IActionResult Put(int id, [FromBody] UserDto item)
@@ -149,6 +154,33 @@ namespace Project.Controllers
             }
 
             return Ok(new { message = "הסיסמה עודכנה בהצלחה" });
+        }
+        [HttpPost("request-registration-code")]
+        public async Task<IActionResult> RequestCode([FromQuery] string email)     {
+            try
+            {
+                var result = await userService.RequestRegistrationCode(email);
+                if (!result)
+                    return BadRequest(new { message = "המייל כבר קיים במערכת" });
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("verify-registration-code")]
+        public IActionResult VerifyCode([FromQuery] string email, [FromQuery] string code)
+        {
+            // פענוח של תווים מקודדים מה-URL
+            string decodedEmail = Uri.UnescapeDataString(email);
+
+            var isValid = userService.VerifyRegistrationCode(decodedEmail, code);
+
+            if (!isValid) return BadRequest(new { message = "קוד שגוי או פג תוקף" });
+            return Ok(new { success = true });
         }
     }
 }

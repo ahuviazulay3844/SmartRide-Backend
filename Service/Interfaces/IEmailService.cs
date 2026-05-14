@@ -15,5 +15,6 @@ namespace Service.Interfaces
         Task SendPasswordResetAsync(string userEmail, string resetCode);// שליחת קוד לאיפוס סיסמה
         Task SendWelcomeEmailAsync(string userEmail, string userName);
         Task SendFineNotificationAsync(string email, decimal fine, string fineReason);
+        Task SendRegistrationVerificationAsync(string userEmail, string verificationCode);// שליחת קוד אימות בעת הרשמה
     }
 }

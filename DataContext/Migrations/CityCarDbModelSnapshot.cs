@@ -30,6 +30,9 @@ namespace DataContext.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("CarCategory")
+                        .HasColumnType("int");
+
                     b.Property<int>("FuelLevel")
                         .HasColumnType("int");
 
@@ -66,6 +69,7 @@ namespace DataContext.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal>("PricePerDay")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PricePerHour")
@@ -73,6 +77,7 @@ namespace DataContext.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("PricePerKm")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("RegionId")
@@ -91,6 +96,9 @@ namespace DataContext.Migrations
                     b.Property<int>("TotalOrdersCount")
                         .HasColumnType("int");
 
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("RegionId");
@@ -107,9 +115,6 @@ namespace DataContext.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("CarId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("CarId1")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("DateCreated")
@@ -134,14 +139,68 @@ namespace DataContext.Migrations
 
                     b.HasIndex("CarId");
 
-                    b.HasIndex("CarId1");
-
                     b.HasIndex("OrderId")
                         .IsUnique();
 
                     b.HasIndex("UserId");
 
                     b.ToTable("Feedbacks");
+                });
+
+            modelBuilder.Entity("Repository.Entities.CarInspection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AnyNewDamage")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("CarId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DamageDescription")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("HasFlatTire")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("InspectionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsAicConditionWorking")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCleanInside")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCleanOutside")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("OrderId1")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CarId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("OrderId1")
+                        .IsUnique()
+                        .HasFilter("[OrderId1] IS NOT NULL");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CarInspections");
                 });
 
             modelBuilder.Entity("Repository.Entities.Coupon", b =>
@@ -171,6 +230,7 @@ namespace DataContext.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal?>("MinimumOrderAmount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("UserId")
@@ -191,7 +251,11 @@ namespace DataContext.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("ActualOpeningTime")
+                        .HasColumnType("datetime2");
+
                     b.Property<decimal>("BasePrice")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("CarId")
@@ -206,6 +270,9 @@ namespace DataContext.Migrations
                     b.Property<bool>("DidCustomerRefuel")
                         .HasColumnType("bit");
 
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int?>("DistanceDrivenKm")
                         .HasColumnType("int");
 
@@ -218,17 +285,24 @@ namespace DataContext.Migrations
                     b.Property<DateTime>("ExpectedEndTime")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("HasConflict")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsInspectionSubmitted")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsPaid")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsReassigned")
+                        .HasColumnType("bit");
+
                     b.Property<decimal>("LateFee")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<int>("PricingType")
                         .HasColumnType("int");
-
-                    b.Property<bool>("ReportedDirty")
-                        .HasColumnType("bit");
 
                     b.Property<int>("StartMileage")
                         .HasColumnType("int");
@@ -237,6 +311,15 @@ namespace DataContext.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SuggestedReplacementCarId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalHours")
                         .HasColumnType("int");
 
                     b.Property<decimal>("TotalPrice")
@@ -292,10 +375,30 @@ namespace DataContext.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<decimal>("AccountBalance")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CVV")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("CardExpiry")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("CardNumber")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<int>("CompletedOrdersCount")
                         .HasColumnType("int");
+
+                    b.Property<string>("CountryOfOrigin")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -310,12 +413,18 @@ namespace DataContext.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("EntryPermitImg")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<bool>("IsBlocked")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsForeignCitizen")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsLicenseVerified")
@@ -328,19 +437,31 @@ namespace DataContext.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<DateTime>("LicenseExpirationDate")
+                    b.Property<string>("LicenseBackImg")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("LicenseExpirationDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("LicenseImageUri")
+                    b.Property<string>("LicenseFrontImg")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LicenseNumber")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("PassportImg")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PassportNumber")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PasswordResetCode")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhoneNumber")
@@ -350,8 +471,17 @@ namespace DataContext.Migrations
                     b.Property<int>("Rank")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("ResetCodeExpiration")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SelfieImg")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("UserType")
                         .HasColumnType("int");
+
+                    b.Property<string>("VisaImg")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -372,20 +502,47 @@ namespace DataContext.Migrations
             modelBuilder.Entity("Repository.Entities.CarFeedback", b =>
                 {
                     b.HasOne("Repository.Entities.Car", "Car")
-                        .WithMany()
-                        .HasForeignKey("CarId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Repository.Entities.Car", null)
                         .WithMany("Feedbacks")
-                        .HasForeignKey("CarId1");
+                        .HasForeignKey("CarId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Repository.Entities.Order", "Order")
                         .WithOne("Feedback")
                         .HasForeignKey("Repository.Entities.CarFeedback", "OrderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Repository.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Car");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Repository.Entities.CarInspection", b =>
+                {
+                    b.HasOne("Repository.Entities.Car", "Car")
+                        .WithMany()
+                        .HasForeignKey("CarId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Repository.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Repository.Entities.Order", null)
+                        .WithOne("Inspection")
+                        .HasForeignKey("Repository.Entities.CarInspection", "OrderId1");
 
                     b.HasOne("Repository.Entities.User", "User")
                         .WithMany()
@@ -449,6 +606,8 @@ namespace DataContext.Migrations
             modelBuilder.Entity("Repository.Entities.Order", b =>
                 {
                     b.Navigation("Feedback");
+
+                    b.Navigation("Inspection");
                 });
 
             modelBuilder.Entity("Repository.Entities.User", b =>

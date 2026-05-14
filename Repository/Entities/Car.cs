@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Repository.Entities;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -11,11 +12,11 @@ namespace Repository.Entities
 {
 
     //(מצב רכב (זמין, חלקית, תפוס
-    public enum CarStatus { Available, PartiallyBooked, Occupied }
-
+    public enum CarStatus { Available = 0, PartiallyBooked = 1, Occupied = 2, Maintenance = 3 }
+    public enum CarCategory { Mini, Family, Large, Commercial, Luxury }
     //טבלת רכבים
     public class Car
-    {
+{
         // --- מזהים ומידע בסיסי ---
         [Key]
         public int Id { get; set; } //מזהה רכב   
@@ -28,7 +29,8 @@ namespace Repository.Entities
         public int Year { get; set; }
 
 
-        // ---(מצב תפעולי (סטטוס ---
+    // ---(מצב תפעולי (סטטוס ---
+        public CarCategory CarCategory { get; set; }
         public CarStatus Status { get; set; } // פנוי/תפוס/מוזמן
         public bool IsLocked { get; set; }= false; //האם נעול
         public DateTime? LastLockTime { get; set; } // זמן נעילה אחרון בפועל
@@ -56,7 +58,7 @@ namespace Repository.Entities
 
         // --- סטטיסטיקה ושיווק  ---
         public int TotalOrdersCount { get; set; } = 0; // כמה פעמים הרכב הוזמן בסך הכל
-        public bool IsPopular => TotalOrdersCount > 50; // משתנה שמחשב: אם הוזמן מעל 50 פעמים הוא  פופולרי  
+        public bool IsPopular => TotalOrdersCount > 3; // משתנה שמחשב: אם הוזמן מעל 50 פעמים הוא  פופולרי  
 
 
         //----- קישורים לטבלאות אחרות -----

@@ -31,13 +31,14 @@ namespace Repository.Entities
         public DateTime CreatedAt { get; set; } = DateTime.Now;// תאריך יצירת המשתמש, נשמר אוטומטית
         public UserType UserType { get; set; } // סוג משתמש: לקוח/מנהל מערכת
 
-       
+        public string Address { get; set; }
 
         // --- נתוני רישיון נהיגה ---
 
-        [Required, MaxLength(8)]
-        public string LicenseNumber { get; set; }// מספר רישיון נהיגה   
-        public DateTime LicenseExpirationDate { get; set; }// תאריך תפוגת רישיון נהיגה
+        [MaxLength(255)]
+        public string? LicenseNumber { get; set; } 
+
+        public DateTime? LicenseExpirationDate { get; set; }// תאריך תפוגת רישיון נהיגה
         public bool IsLicenseVerified { get; set; } = false;     // האם הרישיון אושר על ידי מנהל המערכת                                                     
         public string? LicenseFrontImg { get; set; } // תמונת רישיון - צד קדמי
         public string? LicenseBackImg { get; set; }  // תמונת רישיון - צד אחורי
@@ -45,14 +46,26 @@ namespace Repository.Entities
 
         //  שדות  לאזרח חו"ל 
         public bool IsForeignCitizen { get; set; } = false; // האם המשתמש אזרח חו"ל
-        public string? PassportNumber { get; set; }  // מספר דרכון (במקום ת"ז)
+        [MaxLength(255)]
+        public string? PassportNumber { get; set; }
         public string? PassportImg { get; set; }     // תמונת דרכון
         public string? VisaImg { get; set; }         // תמונת ויזה
         public string? EntryPermitImg { get; set; }  // תמונת אישור כניסה לישראל
         public string? CountryOfOrigin { get; set; } // מדינת מקור
         public bool IsNewDriver { get; set; } = false; // האם  נהג חדש
 
+        // בתוך קובץ User.cs ב-Repository.Entities
 
+        // --- פרטי תשלום מוצפנים ---
+        [MaxLength(255)]
+        public string? CardNumber { get; set; } // מספר כרטיס מוצפן
+        [MaxLength(255)]
+        public string? CardExpiry { get; set; } // תוקף מוצפן
+        [MaxLength(255)]
+        public string? CVV { get; set; }        // CVV מוצפן
+                                                // בתוך User.cs
+     
+       
 
         // ---דרגת משתמש---
         public int CompletedOrdersCount { get; set; } = 0; // מונה הזמנות שבוצעו

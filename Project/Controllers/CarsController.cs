@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Service.Interfaces;
+using Service.Services;
 
 namespace Project.Controllers
 {
@@ -17,6 +18,7 @@ namespace Project.Controllers
             this.carService = carService;
         }
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult Get()
         {
             var cars = carService.GetAll();
@@ -24,6 +26,7 @@ namespace Project.Controllers
         }
 
         [HttpGet("{id}")]
+
         public IActionResult Get(int id)
         {
             var car = carService.GetById(id);
@@ -62,17 +65,32 @@ namespace Project.Controllers
 
             return Ok(new { message = "הרכב נמחק בהצלחה מהמערכת" });
         }
+        //[HttpGet("closest")]
+        //public IActionResult GetClosest([FromQuery] double lat, [FromQuery] double lng, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
+        //{
+        //    if (lat == 0 && lng == 0)
+        //    {
+        //        return BadRequest("Location data is missing");
+        //    }
+
+        //    var cars = carService.GetAllClosest(lat, lng, start, end);
+        //    return Ok(cars);
+        //}
         [HttpGet("closest")]
-        public IActionResult GetClosest([FromQuery] double lat, [FromQuery] double lng)
+        public IActionResult GetClosest([FromQuery] double lat, [FromQuery] double lng, [FromQuery] DateTime? start, [FromQuery] DateTime? end)
         {
-            var closestCars = carService.GetAllClosest(lat, lng);
-            return Ok(new { data = closestCars });
+            if (lat == 0 && lng == 0)
+            {
+                return BadRequest(new { message = "מיקום חסר" });
+            }
+            var cars = carService.GetAllClosest(lat, lng, start, end);
+            return Ok(cars);
         }
-        [HttpGet("available")]
+        [HttpGet("available")] 
         public IActionResult GetAvailableCars([FromQuery] DateTime start, [FromQuery] DateTime end, [FromQuery] int regionId)
         {
             var availableCars = carService.GetAvailableCars(start, end, regionId);
-            return Ok(new { data = availableCars });
+            return Ok(availableCars);
         }
         [HttpGet("{id}/check-suitability")]
         public IActionResult CheckCarSuitability(int id, [FromQuery] DateTime start, [FromQuery] DateTime end)
@@ -129,11 +147,16 @@ namespace Project.Controllers
             }
             return Ok(new { data = cars });
         }
-        [HttpPatch("{id}/status")] 
-        public IActionResult UpdateStatus(int id, [FromBody] string status)
+        [HttpPatch("{id}/status")]
+        public IActionResult UpdateStatus(int id, [FromBody] System.Text.Json.JsonElement body)
         {
-            var result = carService.UpdateStatus(id, status);
-            return result ? Ok() : BadRequest("עדכון סטטוס נכשל");
+            if (body.TryGetProperty("status", out var statusProperty))
+            {
+                string statusValue = statusProperty.ToString();
+                var result = carService.UpdateStatus(id, statusValue);
+                return result ? Ok() : BadRequest("עדכון סטטוס נכשל");
+            }
+            return BadRequest("נתונים לא תקינים");
         }
         [HttpPatch("{carId}/send-to-maintenance")]
         public IActionResult SendToMaintenance(int carId)
@@ -153,5 +176,26 @@ namespace Project.Controllers
             var availableCars = carService.GetAvailableCarsByRegion(regionId);
             return Ok(new { data = availableCars });
         }
+        [HttpGet("{id}/extended-status")]
+        public IActionResult GetExtendedStatus(int id)
+        {
+            var car = carService.GetById(id);
+            if (car == null) return NotFound();
+
+            // קריאה לשירות שיבדוק זמינות נוכחית ובשעה הקרובה
+            var statusInfo = carService.GetCarAvailabilityInfo(id);
+            return Ok(statusInfo);
+        }
+        [HttpPatch("{id}/toggle-lock")]
+        public IActionResult ToggleLock(int id, [FromBody] System.Text.Json.JsonElement body)
+        {
+            if (body.TryGetProperty("isLocked", out var lockProperty))
+            {
+                bool isLocked = lockProperty.GetBoolean();
+                var result = carService.UpdateLockStatus(id, isLocked);
+                return result ? Ok() : BadRequest("עדכון הנעילה נכשל");
+            }
+            return BadRequest("נתונים לא תקינים");
+          }
     }
 }

@@ -71,7 +71,7 @@ namespace Repository.Repositories
             existingUser.Rank = item.Rank;
             existingUser.AccountBalance = item.AccountBalance;
             existingUser.IsBlocked = item.IsBlocked;
-
+            existingUser.Address = item.Address;
 
             context.Save();
             return true;

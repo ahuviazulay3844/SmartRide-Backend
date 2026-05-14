@@ -70,7 +70,6 @@ namespace Service.Services
                 basePrice += (item.TotalDays * 50) + (item.TotalHours * 3);
                 if (item.TotalDays == 0 && item.TotalHours == 0) basePrice += 3;
             }
-
             // 5. יצירת הזמנה חדשה
             Order newOrder = _mapper.Map<Order>(item);
             newOrder.CarId = item.CarId;
@@ -88,7 +87,6 @@ namespace Service.Services
                 user.IsNewDriver = true;
                 _userRepository.Update(user.Id, user);
             }
-
             if (Enum.TryParse(item.PricingType, out PricingType pType))
                 newOrder.PricingType = pType;
 
@@ -103,117 +101,40 @@ namespace Service.Services
                     _carRepository.Update(car.Id, car);
                 }
 
-                try { await _emailService.SendOrderConfirmationAsync(user.Email, saved.Id, car.Model); }
-                catch { /* כשל במייל לא עוצר הזמנה */ }
+              //  try { await _emailService.SendOrderConfirmationAsync(user.Email, saved.Id, car.Model); }
+              //  catch { /* כשל במייל לא עוצר הזמנה */ }
             }
 
             return _mapper.Map<OrderDto>(saved);
         }
 
+        //public bool IsCarBusy(OrderDto item)
+        //{
+        //    // בודק אם קיימת הזמנה (Pending/Active) שחופפת בזמנים לרכב הספציפי
+        //    return _orderRepository.GetAll().Any(o =>
+        //        o.CarId == item.CarId &&
+        //        (o.Status == OrderStatus.Pending || o.Status == OrderStatus.Active) &&
+        //        item.StartTime < o.ExpectedEndTime &&
+        //        item.ExpectedEndTime > o.StartTime);
+        //}
         public bool IsCarBusy(OrderDto item)
         {
-            // בודק אם קיימת הזמנה (Pending/Active) שחופפת בזמנים לרכב הספציפי
+            // 1. בדיקה אם הרכב פיזית בנסיעה כרגע
+            bool isCurrentlyInUse = _orderRepository.GetAll().Any(o =>
+                o.CarId == item.CarId &&
+                o.Status == OrderStatus.Active);
+
+            // אם מישהו בתוך הרכב עכשיו - הוא תפוס.
+            if (isCurrentlyInUse && item.StartTime < DateTime.Now)
+                return true;
+
+            // 2. בדיקת חפיפה רגילה בלו"ז - בלי להוסיף 15 דקות "מתנה" בבדיקה!
             return _orderRepository.GetAll().Any(o =>
                 o.CarId == item.CarId &&
                 (o.Status == OrderStatus.Pending || o.Status == OrderStatus.Active) &&
-                item.StartTime < o.ExpectedEndTime &&
-                item.ExpectedEndTime > o.StartTime);
+                item.StartTime < o.ExpectedEndTime && // התחלה לפני סיום קודמת
+                item.ExpectedEndTime > o.StartTime);  // סיום אחרי התחלה קודמת
         }
-        //{
-        //    var userIdStr = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        //    int currentUserId = int.Parse(userIdStr ?? "0");
-        //    if (currentUserId == 0) return null;
-        //    var isCarBusy = IsCarBusy(item);
-        //    if (isCarBusy) return null;
-        //    var basePrice = CalculateOrderPrice(item);
-        //    if (basePrice == 0) return null;
-        //    Order newOrder = _mapper.Map<Order>(item);
-        //    var car = _carRepository.GetById(item.CarId);
-        //    var user = _userRepository.GetById(item.UserId);
-        //    bool IsBlocked = user.IsBlocked || car.Status != Repository.Entities.CarStatus.Available;
-        //    if (IsBlocked) { return null; }
-        //    if (Enum.TryParse(item.PricingType, out PricingType pType))
-        //    {
-        //        newOrder.PricingType = pType;
-        //    }
-        //    else
-        //    {
-        //        newOrder.PricingType = PricingType.ByHour;
-        //    }
-        //    int age = DateTime.Now.Year - user.DateOfBirth.Year;
-        //    if (age < 24) { newOrder.User.IsNewDriver = true; }
-        //    newOrder.UserId = currentUserId;
-        //    newOrder.BasePrice = basePrice;
-        //    newOrder.Status = OrderStatus.Pending;
-        //    newOrder.IsPaid = false;
-        //    var saved = _orderRepository.Add(newOrder);
-        //    if (saved != null)
-        //    {
-        //        try
-        //        {
-        //            await _emailService.SendOrderConfirmationAsync(user.Email, saved.Id, car.Model);
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            Console.WriteLine($"Email failed for order {saved.Id}: {ex.Message}");
-        //        }
-        //    }
-        //    return _mapper.Map<OrderDto>(saved);
-        //}
-        //public async Task<OrderDto> Add(OrderDto item)
-        //{
-        //    // 1. בדיקה שהרכב קיים
-        //    var car = _carRepository.GetById(item.CarId);
-        //    if (car == null) return null;
-
-        //    // 2. תיקון זמנים (UTC לזמן מקומי)
-        //    item.StartTime = item.StartTime.ToLocalTime();
-        //    item.ExpectedEndTime = item.ExpectedEndTime.ToLocalTime();
-
-        //    // 3. בדיקת זמינות
-        //    if (IsCarBusy(item)) return null;
-
-        //    // 4. חישוב מחיר בסיסי (משתמש ב-TotalDays ו-TotalHours שהגיעו מה-React)
-        //    var basePrice = CalculateOrderPrice(item);
-        //    if (basePrice == 0) return null;
-
-        //    // 5. חישוב עלות ביטוח (Waiver) לפי הנתונים שהגיעו
-        //    if (item.WantsInsuranceUpgrade)
-        //    {
-        //        // 50 ש"ח ליום + 3 ש"ח לכל שעה עודפת
-        //        basePrice += (item.TotalDays * 50) + (item.TotalHours * 3);
-
-        //        // הגנת מינימום: אם ההזמנה קצרה משעה, נחייב לפחות 3 ש"ח ביטוח
-        //        if (item.TotalDays == 0 && item.TotalHours == 0) basePrice += 3;
-        //    }
-
-        //    // 6. מיפוי ושמירה (ה-Automapper יעביר את TotalDays ו-TotalHours ל-Entity)
-        //    Order newOrder = _mapper.Map<Order>(item);
-        //    newOrder.Car = null;
-        //    newOrder.CarId = item.CarId;
-        //    newOrder.StartMileage = car.Kilometers;
-
-        //    // 7. קישור למשתמש (זמני עד הלוגין)
-        //    var user = _userRepository.GetAll().FirstOrDefault();
-        //    if (user == null) return null;
-        //    newOrder.UserId = user.Id;
-
-        //    // 8. הגדרות סופיות
-        //    newOrder.BasePrice = basePrice;
-        //    newOrder.Status = OrderStatus.Pending;
-        //    newOrder.IsPaid = false;
-
-        //    var saved = _orderRepository.Add(newOrder);
-
-        //    // 9. שליחת מייל
-        //    if (saved != null)
-        //    {
-        //        try { await _emailService.SendOrderConfirmationAsync(user.Email, saved.Id, car.Model); }
-        //        catch (Exception ex) { Console.WriteLine($"Email failed: {ex.Message}"); }
-        //    }
-
-        //    return _mapper.Map<OrderDto>(saved);
-        //}
         public IEnumerable<OrderDto> GetAll()
         {
             var orders = _orderRepository.GetAll();
@@ -531,33 +452,86 @@ namespace Service.Services
         public bool UnlockCar(int orderId)
         {
             var order = _orderRepository.GetById(orderId);
+            if (order == null) return false;
 
-            if (order == null)
-                return false;
+            // --- התיקון הקריטי: חסימת פתיחה אם הנהג הקודם עדיין בנסיעה (Active) ---
+            bool isCarBusyByAnother = _orderRepository.GetAll()
+                .Any(o => o.CarId == order.CarId && o.Id != orderId && o.Status == OrderStatus.Active);
 
-            // פתיחה ראשונה בלבד
+            if (isCarBusyByAnother) return false; // השרת מסרב לפתוח את הרכב!
+                                                  // -----------------------------------------------------------------------
+
             if (order.ActualOpeningTime == null)
             {
                 order.ActualOpeningTime = DateTime.Now;
-
                 _orderRepository.Update(order.Id, order);
             }
 
-            // פתיחת רכב תמיד
             var car = _carRepository.GetById(order.CarId);
-
             if (car != null)
             {
                 car.IsLocked = false;
-
                 _carRepository.Update(car.Id, car);
-
                 return true;
             }
-
             return false;
         }
+        //public bool UnlockCar(int orderId)
+        //{
+        //    var order = _orderRepository.GetById(orderId);
+        //    if (order == null) return false;
+
+        //    // הגנה: אם יש נהג אחר שכרגע בנסיעה (Active) על הרכב הזה - חסום פתיחה!
+        //    bool isCarBusyByAnother = _orderRepository.GetAll()
+        //        .Any(o => o.CarId == order.CarId && o.Id != orderId && o.Status == OrderStatus.Active);
+
+        //    if (isCarBusyByAnother) return false; // חוסם פתיחה!
+
+        //    if (order.ActualOpeningTime == null)
+        //    {
+        //        order.ActualOpeningTime = DateTime.Now;
+        //        _orderRepository.Update(order.Id, order);
+        //    }
+
+        //    var car = _carRepository.GetById(order.CarId);
+        //    if (car != null)
+        //    {
+        //        car.IsLocked = false;
+        //        _carRepository.Update(car.Id, car);
+        //        return true;
+        //    }
+        //    return false;
+        //}
+
+        //public bool UnlockCar(int orderId)
+        //{
+        //    var order = _orderRepository.GetById(orderId);
+        //    if (order == null) return false;
+
+        //    // הגנה קריטית: האם יש מישהו אחר שכרגע בסטטוס "Active" (בנסיעה) על הרכב הזה?
+        //    bool isCarBusyByAnother = _orderRepository.GetAll()
+        //        .Any(o => o.CarId == order.CarId && o.Id != orderId && o.Status == OrderStatus.Active);
+
+        //    if (isCarBusyByAnother) return false; // חוסם פתיחה!
+
+        //    if (order.ActualOpeningTime == null)
+        //    {
+        //        order.ActualOpeningTime = DateTime.Now;
+        //        _orderRepository.Update(order.Id, order);
+        //    }
+
+        //    var car = _carRepository.GetById(order.CarId);
+        //    if (car != null)
+        //    {
+        //        car.IsLocked = false;
+        //        _carRepository.Update(car.Id, car);
+        //        return true;
+        //    }
+        //    return false;
+        //}
         //פעולת נעילת רכב
+
+
         public bool LockCar(int orderId)
         {
             var currentUserIdClaim = _httpContextAccessor.HttpContext?.User
@@ -636,10 +610,16 @@ namespace Service.Services
 
         //    return 0; 
         //}
-        public int UpdateTripProgress(int orderId)
+        public async Task<int> UpdateTripProgress(int orderId)
         {
             var order = _orderRepository.GetById(orderId);
             if (order == null || order.Status != OrderStatus.Active) return 0;
+
+            if (DateTime.Now > order.ExpectedEndTime.AddMinutes(15))
+            {
+                // 2. חייב await! כדי לוודא שהשינויים נשמרים ב-DB לפני שה-Request נסגר
+                await ProcessLateCustomerConflict(order.CarId);
+            }
 
             var car = _carRepository.GetById(order.CarId);
             if (car == null || car.IsLocked) return 0;
@@ -648,6 +628,7 @@ namespace Service.Services
             if (rnd.Next(1, 11) > 2)
             {
                 int kmToAdd = rnd.Next(1, 3);
+
 
                 // עדכון ישירות - וודאי שה-Repository משתמש ב-SaveChanges()
                 order.DistanceDrivenKm = (order.DistanceDrivenKm ?? 0) + kmToAdd;
@@ -948,88 +929,416 @@ namespace Service.Services
             throw new NotImplementedException();
         }
 
-        //public async Task<bool> ProcessStartInspection(int orderId, CarInspectionDto reportDto)
+        //public bool IsUserOverlap(int userId, DateTime start, DateTime end)
+        //{
+        //    var startTime = start;
+        //    var endTime = end;
+        //    var now = DateTime.Now;
+
+        //    // אנחנו בודקים האם קיימת הזמנה ש:
+        //    // 1. שייכת למשתמש
+        //    // 2. לא בוטלה ולא הסתיימה
+        //    // 3. הסטטוס שלה הוא Active או Pending
+        //    // 4. חשוב מאוד: היא עדיין רלוונטית (כלומר, זמן הסיום הצפוי שלה לא עבר לפני יותר משעה)
+        //    bool hasTimeOverlap = _orderRepository.GetAll()
+        //        .Any(o => o.UserId == userId &&
+        //                  o.Status != OrderStatus.Canceled &&
+        //                  o.Status != OrderStatus.Completed &&
+        //                  o.StartTime < endTime &&
+        //                  o.ExpectedEndTime > startTime);
+
+        //    return hasTimeOverlap;
+        //}
+        public bool IsUserOverlap(int userId, DateTime start, DateTime end)
+        {
+            // 1. בדיקת חפיפה ביומן
+            bool hasTimeOverlap = _orderRepository.GetAll()
+                .Any(o => o.UserId == userId &&
+                          o.Status != OrderStatus.Canceled &&
+                          o.Status != OrderStatus.Completed &&
+                          o.StartTime < end &&
+                          o.ExpectedEndTime > start);
+
+            if (hasTimeOverlap) return true;
+
+            // 2. חסימת משתמש שמאחר כרגע עם רכב אקטיבי
+            bool isCurrentlyLate = _orderRepository.GetAll()
+                .Any(o => o.UserId == userId &&
+                          o.Status == OrderStatus.Active &&
+                          DateTime.Now > o.ExpectedEndTime);
+
+            return isCurrentlyLate;
+        }
+
+        // 1. פונקציית הארכה לנהג המאחר (עבור המודאל שלו)
+        public async Task<bool> RequestExtension(int orderId)
+        {
+    var order = _orderRepository.GetById(orderId);
+    if (order == null || order.Status != OrderStatus.Active) return false;
+
+    // 1. האם יש מישהו שמחכה לרכב הזה ממש עכשיו?
+    var conflictOrder = _orderRepository.GetAll().FirstOrDefault(o =>
+        o.CarId == order.CarId && o.Id != orderId &&
+        o.Status == OrderStatus.Pending &&
+        o.StartTime < order.ExpectedEndTime.AddHours(1));
+
+    if (conflictOrder != null)
+    {
+        // 2. ניסיון אקטיבי להעביר את הלקוח הבא לרכב אחר
+        bool reassignSuccess = await ProcessLateCustomerConflict(order.CarId);
+        
+        // אם לא הצלחנו למצוא חלופי, רק אז נחסום את ההארכה
+        if (!reassignSuccess) return false;
+    }
+
+    // 3. אם אין קונפליקט או שהעברנו את המשתמש הבא בהצלחה - מאריכים
+    var car = _carRepository.GetById(order.CarId);
+    order.ExpectedEndTime = order.ExpectedEndTime.AddHours(1);
+    order.TotalPrice += car.PricePerHour;
+
+    return _orderRepository.Update(orderId, order);
+}
+
+        // 2. פונקציית הקונפליקט - מחפשת רכב חלופי ללקוח הבא (User B)
+        //public async Task<bool> ProcessLateCustomerConflict(int carId)
+        //{
+        //    // 1. איתור הלקוח הבא שעלול להיפגע (שמזמין ב-15 דקות הקרובות)
+        //    var nextOrder = _orderRepository.GetAll()
+        //        .FirstOrDefault(o => o.CarId == carId &&
+        //                             o.Status == OrderStatus.Pending &&
+        //                             o.StartTime <= DateTime.Now.AddMinutes(15));
+
+        //    // אם אין לקוח שמחכה, או שההזמנה שלו כבר טופלה - אין קונפליקט
+        //    if (nextOrder == null || nextOrder.IsReassigned) return false;
+
+        //    var originalCar = _carRepository.GetById(carId);
+
+        //    // 2. חיפוש רכב חלופי פנוי באותו אזור
+        //    var replacementCar = _carRepository.GetAll()
+        //        .Where(c => c.Id != carId &&
+        //                    c.RegionId == originalCar.RegionId &&
+        //                    c.Status == Repository.Entities.CarStatus.Available &&
+        //                    c.Seats >= originalCar.Seats)
+        //        .AsEnumerable()
+        //        .OrderBy(c => Math.Sqrt(Math.Pow(c.Latitude - originalCar.Latitude, 2) + Math.Pow(c.Longitude - originalCar.Longitude, 2)))
+        //        .FirstOrDefault();
+
+        //    if (replacementCar != null)
+        //    {
+        //        nextOrder.CarId = replacementCar.Id;
+        //        nextOrder.Car.Model = replacementCar.Model; 
+        //        nextOrder.IsReassigned = true;
+        //        nextOrder.DiscountAmount = originalCar.PricePerHour;
+        //        nextOrder.TotalPrice = Math.Max(0, nextOrder.BasePrice - nextOrder.DiscountAmount);
+
+        //        _orderRepository.Update(nextOrder.Id, nextOrder);
+
+        //        // 4. עדכון סטטוס הרכב החדש ל-Occupied (כי הוא כבר לא פנוי לאחרים)
+        //        replacementCar.Status = Repository.Entities.CarStatus.Occupied;
+        //        _carRepository.Update(replacementCar.Id, replacementCar);
+
+        //        // 5. שליחת הודעה ללקוח
+        //        try
+        //        {
+        //            var nextUser = _userRepository.GetById(nextOrder.UserId);
+        //            await _emailService.SendOrderConfirmationAsync(nextUser.Email, nextOrder.Id,
+        //                $"שלום, עקב עיכוב של הנהג הקודם, העברנו אותך לרכב חלופי מדגם {replacementCar.Model}. " +
+        //                $"כפיצוי, קיבלת הנחה של ₪{nextOrder.DiscountAmount} על ההזמנה!");
+        //        }
+        //        catch { /* שגיאת מייל לא צריכה לעצור את התהליך */ }
+
+        //        return true; // ההחלפה הצליחה!
+        //    }
+        //    else
+        //    {
+        //        // אם אין רכב חלופי והנהג הקודם עדיין לא נעל את הרכב (עדיין בנסיעה)
+        //        if (!originalCar.IsLocked)
+        //        {
+        //            nextOrder.Status = OrderStatus.Canceled;
+        //            _orderRepository.Update(nextOrder.Id, nextOrder);
+
+        //            try
+        //            {
+        //                var nextUser = _userRepository.GetById(nextOrder.UserId);
+        //                await _emailService.SendOrderConfirmationAsync(nextUser.Email, nextOrder.Id,
+        //                    "מתנצלים, אך הזמנתך בוטלה עקב עיכוב של הנהג הקודם וחוסר ברכב חלופי.");
+        //            }
+        //            catch { }
+        //        }
+        //    }
+        //    return false; // לא הצלחנו להחליף
+        //}
+        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            var d1 = lat1 * (Math.PI / 180.0);
+            var num1 = lon1 * (Math.PI / 180.0);
+            var d2 = lat2 * (Math.PI / 180.0);
+            var num2 = lon2 * (Math.PI / 180.0) - num1;
+            var d3 = Math.Pow(Math.Sin((d2 - d1) / 2.0), 2.0) +
+                     Math.Cos(d1) * Math.Cos(d2) * Math.Pow(Math.Sin(num2 / 2.0), 2.0);
+
+            return 6371 * (2.0 * Math.Atan2(Math.Sqrt(d3), Math.Sqrt(1.0 - d3))); // מחזיר מרחק בקילומטרים
+        }
+        //public async Task<bool> ProcessLateCustomerConflict(int carId)
+        //{
+        //    // מוצא את הלקוח הבא שצריך את הרכב כרגע
+        //    var nextOrder = _orderRepository.GetAll()
+        //        .FirstOrDefault(o => o.CarId == carId && o.Status == OrderStatus.Pending &&
+        //                             !o.HasConflict && DateTime.Now > o.StartTime.AddMinutes(15));
+
+        //    if (nextOrder == null) return false;
+
+        //    var originalCar = _carRepository.GetById(carId);
+
+        //    // חישוב רכב חלופי הכי קרוב (לפחות אותו מספר מושבים)
+        //    var replacementCar = _carRepository.GetAll()
+        //        .Where(c => c.Id != carId && c.RegionId == originalCar.RegionId &&
+        //                    c.Status == Repository.Entities.CarStatus.Available && c.Seats >= originalCar.Seats)
+        //        .ToList().OrderBy(c => CalculateDistance(originalCar.Latitude, originalCar.Longitude, c.Latitude, c.Longitude))
+        //        .FirstOrDefault();
+
+        //    if (replacementCar != null)
+        //    {
+        //        nextOrder.HasConflict = true; // דגל שיקפיץ את הבחירה ב-React
+        //        nextOrder.SuggestedReplacementCarId = replacementCar.Id; // שמירת ההצעה
+        //        _orderRepository.Update(nextOrder.Id, nextOrder);
+        //        return true;
+        //    }
+        //    return false;
+        //}
+
+        // א. חסימת פתיחת רכב תפוס
+        //public bool UnlockCar(int orderId)
         //{
         //    var order = _orderRepository.GetById(orderId);
         //    if (order == null) return false;
 
-        //    // יצירת הישות לשמירה בדאטה-בייס (מיפוי ידני)
-        //    var inspection = new CarInspection
+        //    // הגנה קריטית: אם יש נהג אחר שכרגע בסטטוס "Active" (בנסיעה) על הרכב הזה - חסום פתיחה!
+        //    bool isCarBusyByAnother = _orderRepository.GetAll()
+        //        .Any(o => o.CarId == order.CarId && o.Id != orderId && o.Status == OrderStatus.Active);
+
+        //    if (isCarBusyByAnother) return false;
+
+        //    if (order.ActualOpeningTime == null)
         //    {
-        //        OrderId = orderId,
-        //        UserId = order.UserId,
-        //        CarId = order.CarId,
-        //        InspectionDate = DateTime.Now,
-        //        IsCleanInside = reportDto.IsCleanInside,
-        //        IsCleanOutside = reportDto.IsCleanOutside,
-        //        IsAicConditionWorking = reportDto.IsAicConditionWorking,
-        //        AnyNewDamage = reportDto.AnyNewDamage,
-        //        DamageDescription = reportDto.DamageDescription
-        //    };
-
-        //    // שמירה לטבלת הבדיקות
-        //    _inspectionRepository.Add(inspection);
-
-        //    // עדכון סטטוס ההזמנה ל"פעיל"
-        //    order.Status = (Repository.Entities.OrderStatus)1;
-        //    _orderRepository.Update(orderId, order);
-
-        //    // פתיחת נעילת הרכב
+        //        order.ActualOpeningTime = DateTime.Now;
+        //        _orderRepository.Update(order.Id, order);
+        //    }
         //    var car = _carRepository.GetById(order.CarId);
         //    if (car != null)
         //    {
         //        car.IsLocked = false;
         //        _carRepository.Update(car.Id, car);
+        //        return true;
         //    }
-
-        //    return true;
+        //    return false;
         //}
-        // בתוך OrderService.cs
-        //    public bool IsUserOverlap(int userId, DateTime start, DateTime end)
-        //    {
-        //        // המרה לזמן מקומי כדי להשוות מול נתוני ה-DB בצורה נכונה
-        //        var startTime = start.ToLocalTime();
-        //        var endTime = end.ToLocalTime();
 
-        //        // הלוגיקה החדשה:
-        //        // בודקים האם קיימת הזמנה כלשהי (לא משנה אם היא Pending או Active)
-        //        // שמתנגשת ולו בדקה אחת עם חלון הזמן המבוקש.
-        //        // אנחנו מוציאים מהכלל הזמנות שבוטלו או הסתיימו כי הן לא תופסות את הנהג פיזית.
-
-        //        bool hasTimeOverlap = _orderRepository.GetAll()
-        //            .Any(o => o.UserId == userId &&
-        //                      o.Status != OrderStatus.Canceled &&
-        //                      o.Status != OrderStatus.Completed &&
-        //                      // תנאי החפיפה הלוגי:
-        //                      // ההזמנה הקיימת מתחילה לפני שהחדשה מסתיימת
-        //                      o.StartTime < endTime &&
-        //                      // וההזמנה הקיימת מסתיימת אחרי שהחדשה מתחילה
-        //                      o.ExpectedEndTime > startTime);
-
-        //        // אם נמצאה חפיפה - הנהג "תפוס" ולא יכול להזמין רכב נוסף
-        //        return hasTimeOverlap;
-        //
-        //    
-        public bool IsUserOverlap(int userId, DateTime start, DateTime end)
+        // ב. פונקציית האישור של הלקוח הבא (User B) - נקראת מה-React
+        public async Task<bool> ConfirmCarSwitch(int orderId, bool accept)
         {
-            var startTime = start;
-            var endTime = end;
-            var now = DateTime.Now;
+            var order = _orderRepository.GetById(orderId);
+            if (order == null) return false;
 
-            // אנחנו בודקים האם קיימת הזמנה ש:
-            // 1. שייכת למשתמש
-            // 2. לא בוטלה ולא הסתיימה
-            // 3. הסטטוס שלה הוא Active או Pending
-            // 4. חשוב מאוד: היא עדיין רלוונטית (כלומר, זמן הסיום הצפוי שלה לא עבר לפני יותר משעה)
-            bool hasTimeOverlap = _orderRepository.GetAll()
-                .Any(o => o.UserId == userId &&
-                          o.Status != OrderStatus.Canceled &&
-                          o.Status != OrderStatus.Completed &&
-                          o.StartTime < endTime &&
-                          o.ExpectedEndTime > startTime);
+            if (accept)
+            {
+                // מחפשים רכב חלופי פנוי רק עכשיו - כשהלקוח אישר
+                var originalCar = _carRepository.GetById(order.CarId);
+                var replacementCar = _carRepository.GetAll()
+                    .Where(c => c.Id != order.CarId && c.RegionId == originalCar.RegionId &&
+                                c.Status == Repository.Entities.CarStatus.Available && c.Seats >= originalCar.Seats)
+                    .ToList().OrderBy(c => CalculateDistance(originalCar.Latitude, originalCar.Longitude, c.Latitude, c.Longitude))
+                    .FirstOrDefault();
 
-            return hasTimeOverlap;
+                if (replacementCar != null)
+                {
+                    order.CarId = replacementCar.Id;
+                    order.IsReassigned = true;
+                    order.DiscountAmount = originalCar.PricePerHour; // פיצוי: שעה חינם
+                    order.TotalPrice = Math.Max(0, order.BasePrice - order.DiscountAmount);
+                    _orderRepository.Update(orderId, order);
+
+                    replacementCar.Status = Repository.Entities.CarStatus.PartiallyBooked;
+                    _carRepository.Update(replacementCar.Id, replacementCar);
+                    return true;
+                }
+                return false;
+            }
+            else
+            {
+                // המשתמש סירב - ביטול הזמנה
+                order.Status = OrderStatus.Canceled;
+                _orderRepository.Update(orderId, order);
+                return true;
+            }
+        }
+        public bool ConfirmReplacement(int orderId, bool accept)
+        {
+            var order = _orderRepository.GetById(orderId);
+            // בדיקה שיש הצעה להחלפה
+            if (order == null || !order.HasConflict || !order.SuggestedReplacementCarId.HasValue) return false;
+
+            if (accept)
+            {
+                var originalCar = _carRepository.GetById(order.CarId);
+
+                // 1. מחליפים לרכב שהצענו (Suggested)
+                order.CarId = order.SuggestedReplacementCarId.Value;
+                order.IsReassigned = true;
+
+                // 2. נותנים פיצוי: שעה חינם (בגובה מחיר שעה של הרכב המקורי)
+                order.DiscountAmount = originalCar.PricePerHour;
+                order.TotalPrice = Math.Max(0, order.BasePrice - order.DiscountAmount);
+
+                order.HasConflict = false; // הקונפליקט נפתר
+                _orderRepository.Update(orderId, order);
+            }
+            else
+            {
+                // המשתמש בחר לבטל
+                order.Status = OrderStatus.Canceled;
+                _orderRepository.Update(orderId, order);
+            }
+            return true;
+        }
+        // --- תוסיפי את פונקציית המרחק בתוך המחלקה OrderService ---
+
+        // א. חסימת פתיחת רכב אם הנהג הקודם עוד לא סיים (Active)
+        //public bool UnlockCar(int orderId)
+        //{
+        //    var order = _orderRepository.GetById(orderId);
+        //    if (order == null) return false;
+
+        //    // בדיקה: האם מישהו אחר בנסיעה פעילה על הרכב הזה ממש עכשיו?
+        //    bool isLockedByOther = _orderRepository.GetAll()
+        //        .Any(o => o.CarId == order.CarId && o.Id != orderId && o.Status == OrderStatus.Active);
+
+        //    if (isLockedByOther) return false; // השרת מסרב לפתוח את הרכב!
+
+
+        //    // הגנה: אם יש נהג אחר שעדיין בנסיעה פעילה על הרכב הזה - אל תפתח!
+        //    bool isCarCurrentlyActive = _orderRepository.GetAll()
+        //        .Any(o => o.CarId == order.CarId && o.Id != orderId && o.Status == OrderStatus.Active);
+
+        //    if (isCarCurrentlyActive) return false;
+
+        //    if (order.ActualOpeningTime == null)
+        //    {
+        //        order.ActualOpeningTime = DateTime.Now;
+        //        _orderRepository.Update(order.Id, order);
+        //    }
+        //    var car = _carRepository.GetById(order.CarId);
+        //    if (car != null)
+        //    {
+        //        car.IsLocked = false;
+        //        _carRepository.Update(car.Id, car);
+        //        return true;
+        //    }
+        //    return false;
+        //}
+
+        public async Task<bool> ProcessLateCustomerConflict(int carId)
+        {
+            // 1. זיהוי המשתמש שנתקע (User B) - ישירות מה-DB
+            var waitingOrder = _orderRepository.GetAll()
+                .FirstOrDefault(o => o.CarId == carId && o.Status == OrderStatus.Pending);
+
+            if (waitingOrder == null) return false;
+
+            // 2. שליפת פרטי הרכב המקורי (רק מה שצריך)
+            var originalCar = _carRepository.GetById(carId);
+            if (originalCar == null) return false;
+
+            // הגדרת זמנים עם ה-Buffer
+            DateTime startWithBuffer = waitingOrder.StartTime.AddMinutes(-5);
+            DateTime endWithBuffer = waitingOrder.ExpectedEndTime.AddMinutes(5);
+
+            // 3. מציאת רכבים פוטנציאליים - סינון ראשוני ב-DB (IQueryable)
+            // אנחנו מחפשים רכבים עם מספיק מושבים, שלא בטיפול, ושהם לא הרכב המקורי
+            var potentialCarsQuery = _carRepository.GetAll()
+                .Where(c => c.Id != carId &&
+                            !c.NeedsMaintenance &&
+                            c.Seats >= originalCar.Seats);
+
+            // 4. סינון רכבים תפוסים ב-DB
+            // במקום להביא את כל ההזמנות, נשאל את ה-DB: "מי מהרכבים האלו מופיע בהזמנה חופפת?"
+            var busyCarIds = _orderRepository.GetAll()
+                .Where(o => o.Status != OrderStatus.Completed &&
+                            o.Status != OrderStatus.Canceled &&
+                            o.StartTime < endWithBuffer &&
+                            o.ExpectedEndTime > startWithBuffer)
+                .Select(o => o.CarId)
+                .Distinct()
+                .ToList();
+
+            // 5. שליפת הרכבים הפנויים בלבד לזיכרון
+            var availableCars = potentialCarsQuery
+                .Where(c => !busyCarIds.Contains(c.Id))
+                .ToList();
+
+            // 6. חישוב מרחק ודירוג בזיכרון (כי CalculateDistance היא פונקציית C#)
+            var replacementCar = availableCars
+                .OrderBy(c => CalculateDistance(originalCar.Latitude, originalCar.Longitude, c.Latitude, c.Longitude))
+                .ThenByDescending(c => c.FuelLevel)
+                .FirstOrDefault();
+
+            // 7. עדכון הקונפליקט
+            if (replacementCar != null)
+            {
+                waitingOrder.HasConflict = true;
+                waitingOrder.SuggestedReplacementCarId = replacementCar.Id;
+
+                // חשוב: אם יש לך Notification Service, זה הזמן לשלוח פוש למשתמש
+                _orderRepository.Update(waitingOrder.Id, waitingOrder);
+
+                Console.WriteLine($"[Success] Order {waitingOrder.Id} re-routed to {replacementCar.Model}");
+                return true;
+            }
+
+            return false;
+        }
+        public bool FinalizeReplacement(int orderId, bool accept)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || !order.HasConflict || !order.SuggestedReplacementCarId.HasValue) return false;
+
+            if (accept)
+            {
+                var originalCar = _carRepository.GetById(order.CarId);
+                // המשתמש אישר - מעבירים רכב ונותנים שעה חינם
+                order.CarId = order.SuggestedReplacementCarId.Value;
+                order.IsReassigned = true;
+                order.DiscountAmount = originalCar.PricePerHour;
+                order.TotalPrice = Math.Max(0, order.BasePrice - order.DiscountAmount);
+                order.HasConflict = false;
+                _orderRepository.Update(orderId, order);
+            }
+            else
+            {
+                // ביטול
+                order.Status = OrderStatus.Canceled;
+                _orderRepository.Update(orderId, order);
+            }
+            return true;
+        }
+
+   
+        public bool ReportRefuel(int orderId)
+        {
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || order.Status != OrderStatus.Active) return false;
+
+            var car = _carRepository.GetById(order.CarId);
+            if (car == null) return false;
+
+            // עדכון ל-100% בדאטה-בייס באמת
+            car.FuelLevel = 100;
+            _carRepository.Update(car.Id, car);
+
+            order.DidCustomerRefuel = true;
+            _orderRepository.Update(orderId, order);
+            return true;
         }
     }
-    }
+}
 

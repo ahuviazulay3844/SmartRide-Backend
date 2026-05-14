@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Repository;
+using Repository;   
 using Service.Interfaces; 
 using Service.Services;
 
@@ -21,6 +21,7 @@ namespace Service.Services
             services.AddScoped<IRegionService, RegionService>();
             services.AddScoped<ICouponService, CouponService>();
             services.AddAutoMapper(typeof(MapperProfile));
+            services.AddSingleton<EncryptionService>();
             services.Configure<EmailSettings>(configuration.GetSection("EmailSettings")); services.AddScoped<IEmailService, EmailService>();
             services.AddHttpContextAccessor();
             return services;

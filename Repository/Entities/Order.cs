@@ -46,6 +46,11 @@ namespace Repository.Entities
         public string? ConditionNotes { get; set; } // יקבל מהמייל- הערות חופשיות על מצב הרכב
 
         public virtual CarInspection? Inspection { get; set; } // מאפשר גישה לדיווח מתוך ההזמנה
+        public bool IsReassigned { get; set; } = false;
+        public decimal DiscountAmount { get; set; } = 0;
+        // בתוך הקובץ Order.cs
+        public bool HasConflict { get; set; } = false;
+        public int? SuggestedReplacementCarId { get; set; }
 
         //קישורים לטבלאות אחרות
 

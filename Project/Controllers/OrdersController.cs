@@ -80,16 +80,19 @@ namespace Project.Controllers
             return Ok(new { message = "ההזמנה בוטלה בהצלחה" });
         }
 
-    
+
         [HttpPost("{id}/unlock")]
         [Authorize(Roles = "user")]
-        public IActionResult Unlock(int id)
+        public async Task<IActionResult> Unlock(int id)
         {
-            var result = orderService.UnlockCar(id);
-            if (!result) return BadRequest(new { message = "לא ניתן לפתוח את הרכב" });
-            return Ok(new { message = "הרכב נפתח" });
-        }
+            // הוספנו await כדי לקבל את התוצאה האמיתית (bool) ולא את ה-Task
+            var result =  orderService.UnlockCar(id);
 
+            if (!result)
+                return BadRequest(new { message = "לא ניתן לפתוח את הרכב. וודא שהנסיעה פעילה ושזה הרכב הנכון." });
+
+            return Ok(new { message = "הרכב נפתח בהצלחה" });
+        }
         [HttpPut("{id}/lock")]
         [Authorize(Roles = "user")]
         public IActionResult Lock(int id)
@@ -122,9 +125,9 @@ namespace Project.Controllers
         //}
         [HttpPost("{id}/update-progress")]
         [Authorize(Roles = "user")]
-        public IActionResult UpdateProgress(int id)
+        public async Task<IActionResult> UpdateProgress(int id)
         {
-            int currentTotalKm = orderService.UpdateTripProgress(id);
+            int currentTotalKm =await orderService.UpdateTripProgress(id);
 
             return Ok(new
             {
@@ -275,6 +278,46 @@ namespace Project.Controllers
             var hasOverlap = orderService.IsUserOverlap(userId, start, end);
 
             return Ok(new { hasOverlap });
+        }
+        [HttpPost("extend/{id}")]
+        public async Task<IActionResult> ExtendOrder(int id)
+        {
+            // חייבים להוסיף await כדי לחכות לתוצאה האמיתית (bool)
+            var success = await orderService.RequestExtension(id);
+
+            if (!success)
+            {
+                return BadRequest("לא ניתן להאריך את ההזמנה. ייתכן שהרכב תפוס על ידי לקוח אחר או שהנסיעה אינה פעילה.");
+            }
+
+            return Ok(true);
+        }
+        [HttpPost("{id}/confirm-replacement")]
+        [Authorize]
+        public IActionResult ConfirmReplacement(int id, [FromQuery] bool accept)
+        {
+            // קריאה לפעולה שיצרנו ב-OrderService
+            var result = orderService.ConfirmReplacement(id, accept);
+
+            if (!result) return BadRequest(new { message = "לא ניתן לבצע את הפעולה" });
+
+            return Ok(true);
+        }
+        //[HttpPost("{id}/report-refuel")]
+        //[Authorize(Roles = "user")]
+        //public IActionResult ReportRefuel(int id)
+        //{
+        //    var result = orderService.ReportRefuel(id);
+        //    if (!result) return BadRequest(new { message = "דיווח תדלוק נכשל" });
+        //    return Ok(new { message = "התדלוק עודכן בהצלחה! הבונוס יחושב בסיום הנסיעה." });
+        //}
+        [HttpPost("{id}/report-refuel")]
+        [Authorize(Roles = "user")]
+        public IActionResult ReportRefuel(int id)
+        {
+            var result = orderService.ReportRefuel(id);
+            if (!result) return BadRequest(new { message = "דיווח תדלוק נכשל" });
+            return Ok(true);
         }
     }
 }

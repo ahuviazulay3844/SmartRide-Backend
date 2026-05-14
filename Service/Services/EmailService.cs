@@ -59,9 +59,7 @@ namespace Service.Services
                     <div style='background-color: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0; border-right: 4px solid {PrimaryColor};'>
                         <p style='margin: 0;'><b>רכב מוזמן:</b> {carModel}</p>
                     </div>
-                    <p>לפני הכניסה לרכב, חובה למלא את שאלון מצב הרכב כדי לשמור על הכיסוי הביטוחי שלך:</p>
-                    <div style='text-align: center; margin-top: 30px;'>
-                        <a href='https://citycar.co.il/survey?orderId={orderId}' style='background-color: {PrimaryColor}; color: white; padding: 14px 35px; text-decoration: none; border-radius: 50px; font-weight: bold; display: inline-block;'>למילוי דיווח מצב רכב</a>
+     
                     </div>
                 </div>
             </div>";

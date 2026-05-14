@@ -18,7 +18,8 @@ namespace Service.Interfaces
         int GetTotalUsersCount();
         bool ResetPassword(string email, string code, string newPassword);
         Task<bool> RequestPasswordReset(string email);
-
+        Task<bool> RequestRegistrationCode(string email);
+        bool VerifyRegistrationCode(string email, string code);
 
     }
 }

@@ -27,8 +27,12 @@ namespace Service.Services
 
             // 3. מיפוי משתמשים
             CreateMap<User, UserDto>()
-                .ForMember(dest => dest.UserType, opt => opt.MapFrom(src => src.UserType.ToString()))
-                .ReverseMap();
+         .ForMember(dest => dest.UserType, opt => opt.MapFrom(src => src.UserType.ToString()));
+
+            // מ-DTO ל-Entity (עבור ה-Update וה-Add)
+            CreateMap<UserDto, User>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore()) // התעלמות מה-Id כדי למנוע את שגיאת ה-InvalidOperationException
+                .ForMember(dest => dest.UserType, opt => opt.Ignore()); // בדרך כלל לא נרצה לעדכן סוג משתמש דרך פרופיל רגיל
 
             // 4. מיפוי הזמנות
             //CreateMap<Order, OrderDto>()

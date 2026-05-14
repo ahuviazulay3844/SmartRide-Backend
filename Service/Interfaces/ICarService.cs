@@ -8,7 +8,7 @@ namespace Service.Interfaces
 {
     public interface ICarService: IService<CarDto>
     {
-        IEnumerable<CarDto> GetAllClosest(double latitude, double longitude);    
+        //IEnumerable<CarDto> GetAllClosest(double userLat, double userLon, DateTime? start = null, DateTime? end = null);
         bool SendToMaintenance(int carId);
         bool ReleaseFromMaintenance(int carId);
         IEnumerable<CarDto> GetVehiclesNeedingFuel();
@@ -21,5 +21,9 @@ namespace Service.Interfaces
         bool IsCarFitForRoad(int carId);
         string CheckCarSuitability(int carId, DateTime start, DateTime end);
         IEnumerable<CarDto> GetByStatus(string status);
+        object GetCarAvailabilityInfo(int id);
+        bool UpdateLockStatus(int carId, bool isLocked);
+        CarStatus GetDetailedAvailabilityStatus(int carId, DateTime requestedStart, DateTime requestedEnd, out DateTime? conflictStart, out DateTime? conflictEnd);
+        IEnumerable<CarDto> GetAllClosest(double userLat, double userLon, DateTime? start = null, DateTime? end = null);
     }
 }
