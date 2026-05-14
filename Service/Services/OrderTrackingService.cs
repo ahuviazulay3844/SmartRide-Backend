@@ -28,45 +28,30 @@ namespace Service.Services
             await HandleBufferingAndConflicts(now);
         }
 
+
         private async Task UpdatePendingOrders(DateTime now)
         {
-            var toActivate = _orderService.GetAll()
-                .Where(o => o.Status == OrderStatus.Pending && o.StartTime <= now)
+            var allOrders = _orderService.GetAll().ToList();
+
+            // סינון: רק הזמנותPending, שהזמן שלהן הגיע, ושאין עליהן כרגע הצעה להחלפה
+            var toActivate = allOrders
+                .Where(o => o.Status == OrderStatus.Pending &&
+                            o.StartTime <= now &&
+                            o.HasConflict == false) // הוספת הבדיקה הזו
                 .ToList();
 
             foreach (var order in toActivate)
             {
-                // 1. האם יש משתמש קודם שעדיין לא סיים?
-                bool isCarBlockedByLateUser = _orderService.GetAll()
-                    .Any(o => o.CarId == order.CarId &&
-                              o.Status == OrderStatus.Active &&
-                              o.Id != order.Id);
-
-                // 2. האם הרכב בסטטוס שמונע נסיעה (למשל בטיפול)?
-                var car = _carService.GetById(order.CarId);
-                bool isCarInMaintenance = car?.Status == CarStatus.Maintenance;
-
-                if (isCarBlockedByLateUser || isCarInMaintenance)
-                {
-                    // מפעיל את תהליך הצעת רכב חלופי
-                    await _orderService.ProcessLateCustomerConflict(order.CarId);
-
-                    Console.WriteLine($"[Worker] Order {order.Id} deferred. Reason: " +
-                        (isCarBlockedByLateUser ? "Car is still busy" : "Car is in maintenance"));
-
-                    continue;
-                }
-
-                // 3. הכל תקין - מפעילים את הנסיעה
+                // כאן ה-Worker מנסה להפעיל את הרכב המקורי
+                // הוא יגיע לכאן רק אם User A סיים בזמן והכל תקין
                 await _orderService.UpdateStatusAsync(order.Id, OrderStatus.Active);
 
+                var car = _carService.GetById(order.CarId);
                 if (car != null)
                 {
                     car.Status = CarStatus.Occupied;
                     _carService.Update(car.Id, car);
                 }
-
-                Console.WriteLine($"[Worker] Order {order.Id} is now Active.");
             }
         }
         private async Task UpdateActiveTripsProgress()
@@ -112,52 +97,52 @@ namespace Service.Services
         }
         private async Task HandleBufferingAndConflicts(DateTime now)
         {
-            // 1. שליפת כל ההזמנות הרלוונטיות פעם אחת (כדי למנוע פניות מיותרות ל-DB בלולאה)
             var allOrders = _orderService.GetAll().ToList();
 
-            // 2. איתור הזמנות "בעייתיות": הן פעילות, הזמן שלהן עבר, והן עוד לא הסתיימו (EndTime הוא NULL)
-            // הערה: הורדתי את ה-15 דקות ל-2 דקות כדי שהמערכת תגיב מהר יותר לאיחור
             var lateOrders = allOrders
-                .Where(o => o.Status == OrderStatus.Active &&
-                            o.EndTime == null &&
-                            o.ExpectedEndTime <= now.AddMinutes(-2))
+                .Where(o => o.Status == OrderStatus.Active && o.EndTime == null && o.ExpectedEndTime <= now.AddMinutes(-2))
                 .ToList();
 
             foreach (var lateOrder in lateOrders)
             {
-                // 3. איתור "הקורבן" (User B): מישהו שההזמנה שלו צריכה להתחיל בקרוב (או כבר התחילה)
-                // על אותו רכב בדיוק, ועדיין לא טיפלנו בו (IsReassigned == false)
                 var waitingOrder = allOrders
                     .FirstOrDefault(o => o.CarId == lateOrder.CarId &&
                                          o.Status == OrderStatus.Pending &&
-                                         o.StartTime <= lateOrder.ExpectedEndTime.AddMinutes(30) && // חלון זמן רלוונטי
-                                         !o.IsReassigned &&
-                                         o.Id != lateOrder.Id);
+                                         !o.HasConflict && // --- חשוב: אל תחפש אם כבר הצענו החלפה! ---
+                                         !o.IsReassigned);
 
                 if (waitingOrder != null)
                 {
-                    // בדיקה נוספת: האם כבר סימנו שיש קונפליקט? אם לא, נסמן ונדפיס
-                    if (!waitingOrder.HasConflict)
-                    {
-                        Console.WriteLine($"[Worker] Conflict detected! Order {waitingOrder.Id} is blocked by late User in Order {lateOrder.Id}");
-                        // אפשר לעדכן כאן דגל ב-DB שהמשתמש יראה "הרכב מאחר" באפליקציה
-                    }
-
-                    // 4. ניסיון ההחלפה הקריטי
-                    // אנחנו שולחים את ה-CarId של הרכב התפוס כדי שהפונקציה תמצא רכב חלופי ל-waitingOrder
-                    bool success = await _orderService.ProcessLateCustomerConflict(lateOrder.CarId);
-
-                    if (success)
-                    {
-                        Console.WriteLine($"[Worker] SUCCESS: Order {waitingOrder.Id} reassigned to a new car.");
-                    }
-                    else
-                    {
-                        // אם נכשל - אולי כדאי לשלוח התראה למנהל המערכת או למשתמש
-                        Console.WriteLine($"[Worker] FAIL: No alternative car found for Order {waitingOrder.Id}. User is still stuck.");
-                    }
+                    await _orderService.ProcessLateCustomerConflict(lateOrder.CarId);
                 }
             }
         }
+        //private async Task HandleBufferingAndConflicts(DateTime now)
+        //{
+        //    var allOrders = _orderService.GetAll().ToList();
+
+        //    // 1. מי המאחרים (User A)?
+        //    var lateOrders = allOrders
+        //        .Where(o => o.Status == OrderStatus.Active && o.EndTime == null && o.ExpectedEndTime < now)
+        //        .ToList();
+
+        //    foreach (var lateOrder in lateOrders)
+        //    {
+        //        // 2. מי מחכה לרכב הספציפי הזה (User B)?
+        //        // תנאי: רק אם הוא Pending ועוד לא קיבל הצעה (HasConflict == false)
+        //        var waitingOrder = allOrders
+        //            .FirstOrDefault(o => o.CarId == lateOrder.CarId &&
+        //                                 o.Status == OrderStatus.Pending &&
+        //                                 !o.HasConflict);
+
+        //        if (waitingOrder != null)
+        //        {
+        //            // מפעילים את הקונפליקט על waitingOrder
+        //            await _orderService.ProcessLateCustomerConflict(lateOrder.CarId);
+        //        }
+        //    }
+        //}
+
     }
-    }
+        }
+   

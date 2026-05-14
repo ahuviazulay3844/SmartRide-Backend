@@ -38,7 +38,8 @@ namespace Repository.Entities
         // --- ניהול וסטטוס ---
         public OrderStatus Status { get; set; } = OrderStatus.Pending; //מצב הזמנה
         public bool IsPaid { get; set; } = false; //האם ההזמנה שולמה
-
+        public string? SuggestedCarModel { get; set; }
+        public string? SuggestedCarLocation { get; set; }
 
         // --- דלק ודיווחים ---
         public bool DidCustomerRefuel { get; set; } = false; // האם מילא דלק-בשביל הבונוס
@@ -51,6 +52,8 @@ namespace Repository.Entities
         // בתוך הקובץ Order.cs
         public bool HasConflict { get; set; } = false;
         public int? SuggestedReplacementCarId { get; set; }
+      
+        public int? SuggestedCarSeats { get; set; } 
 
         //קישורים לטבלאות אחרות
 
