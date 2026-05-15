@@ -881,13 +881,51 @@ namespace Service.Services
             return updated;
         }
 
+        //public bool CancelOrder(int orderId)
+        //{
+        //    var order = _orderRepository.GetById(orderId);
+        //    if (order == null || !IsUserAuthorized(order) || order.Status != OrderStatus.Pending)
+        //        return false;
+
+        //    order.Status = OrderStatus.Canceled;
+        //    return _orderRepository.Update(orderId, order);
+        //}
         public bool CancelOrder(int orderId)
         {
             var order = _orderRepository.GetById(orderId);
+            // מותר לבטל רק הזמנה שקיימת, שייכת למשתמש, ובסטטוס "ממתינה"
             if (order == null || !IsUserAuthorized(order) || order.Status != OrderStatus.Pending)
                 return false;
 
+            var car = _carRepository.GetById(order.CarId);
+            var now = DateTime.Now;
+            var timeToStart = order.StartTime - now;
+
+            // --- חישוב הקנס לפי המדיניות שלך ---
+            if (timeToStart.TotalHours >= 24)
+            {
+                order.TotalPrice = 0; // ביטול חינם
+            }
+            else if (timeToStart.TotalHours >= 2)
+            {
+                order.TotalPrice = car.PricePerHour; // קנס של שעה אחת
+            }
+            else
+            {
+                order.TotalPrice = order.BasePrice * 0.5m; // קנס 50% מההזמנה
+            }
+
             order.Status = OrderStatus.Canceled;
+            order.IsPaid = order.TotalPrice > 0; // אם יש קנס, הוא נחשב כחוב ששולם/יגבה
+
+            // עדכון הרכב לזמין אם אין לו הזמנות אחרות (אופציונלי אך מומלץ)
+            if (car != null && car.Status == Repository.Entities.CarStatus.PartiallyBooked)
+            {
+                bool hasOtherPending = _orderRepository.GetAll()
+                    .Any(o => o.CarId == car.Id && o.Id != orderId && o.Status == OrderStatus.Pending);
+                if (!hasOtherPending) car.Status = Repository.Entities.CarStatus.Available;
+            }
+
             return _orderRepository.Update(orderId, order);
         }
 
@@ -1673,12 +1711,27 @@ namespace Service.Services
                 var newCar = _carRepository.GetById(oldOrder.SuggestedReplacementCarId.Value);
                 if (newCar == null) return false;
 
-                // 1. ביטול ההזמנה המקורית (כדי לשמור היסטוריה ולא לדרוס)
+                // --- שלב חדש: עדכון חוב ללקוח המאחר ---
+                // מוצאים את ההזמנה של הלקוח שכרגע נמצא על הרכב המקורי ומאחר
+                var lateOrder = _orderRepository.GetAll()
+                    .FirstOrDefault(o => o.CarId == oldOrder.CarId && o.Status == OrderStatus.Active);
+
+                if (lateOrder != null)
+                {
+                    // גביית מחיר השעה כקנס איחור (זה ה"איום" שלך)
+                    decimal penalty = oldOrder.DiscountAmount;
+                    lateOrder.LateFee += penalty;
+                    lateOrder.TotalPrice += penalty;
+                    _orderRepository.Update(lateOrder.Id, lateOrder);
+                }
+                // ---------------------------------------
+
+                // 1. ביטול ההזמנה המקורית
                 oldOrder.Status = OrderStatus.Canceled;
                 oldOrder.HasConflict = false;
                 _orderRepository.Update(orderId, oldOrder);
 
-                // 2. יצירת הזמנה חדשה לגמרי (Active)
+                // 2. יצירת הזמנה חדשה (Active) עם שעה ראשונה חינם (הנחה)
                 var duration = oldOrder.ExpectedEndTime - oldOrder.StartTime;
                 var newOrder = new Order
                 {
@@ -1686,10 +1739,10 @@ namespace Service.Services
                     CarId = newCar.Id,
                     StartTime = DateTime.Now,
                     ExpectedEndTime = DateTime.Now.Add(duration),
-                    Status = OrderStatus.Active, // הופך לאקטיבי מיד
+                    Status = OrderStatus.Active,
                     ActualOpeningTime = DateTime.Now,
                     BasePrice = oldOrder.BasePrice,
-                    DiscountAmount = oldOrder.DiscountAmount,
+                    DiscountAmount = oldOrder.DiscountAmount, // זו השעה חינם
                     TotalPrice = Math.Max(0, oldOrder.BasePrice - oldOrder.DiscountAmount),
                     IsReassigned = true,
                     PricingType = oldOrder.PricingType
@@ -1699,7 +1752,7 @@ namespace Service.Services
 
                 // 3. עדכון סטטוס הרכב החדש
                 newCar.Status = CarStatus.Occupied;
-                newCar.IsLocked = true; // נשאר נעול עד לפתיחה פיזית
+                newCar.IsLocked = true;
                 _carRepository.Update(newCar.Id, newCar);
 
                 return true;
