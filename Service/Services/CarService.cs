@@ -1729,75 +1729,206 @@ namespace Service.Services
         //    // אם נמצאו רק חלונות קטנים מדי (למשל 10 דקות פה ו-10 דקות שם)
         //    return CarStatus.Occupied;
         //}
+        //public object GetCarAvailabilityInfo(int carId)
+        //{
+        //    var car = _carRepository.GetById(carId);
+        //    if (car == null) return null;
+
+        //    var now = DateTime.Now;
+        //    int bufferMinutes = 15; // מומלץ למשוך מקונפיגורציה במידת האפשר
+
+        //    // שליפת הזמנות רלוונטיות
+        //    var orders = _orderRepository.GetAll()
+        //        .Where(o => o.CarId == carId &&
+        //                    o.Status != OrderStatus.Canceled &&
+        //                    o.Status != OrderStatus.Completed)
+        //        .OrderBy(o => o.StartTime)
+        //        .ToList();
+
+        //    var activeOrder = orders.FirstOrDefault(o => o.Status == OrderStatus.Active);
+        //    // הזמנה עתידית - הראשונה שמתחילה אחרי "עכשיו"
+        //    var upcomingOrder = orders.FirstOrDefault(o => o.Status == OrderStatus.Pending && o.StartTime > now);
+
+        //    CarStatus numericStatus = CarStatus.Available;
+        //    string displayStatusText = "פנוי";
+        //    DateTime? blockingOrderEnd = null;
+        //    DateTime? nextAvailableStart = null;
+        //    string note = "";
+
+        //    // אסטרטגיית בדיקה:
+
+        //    // 1. האם יש נסיעה פעילה כרגע?
+        //    if (activeOrder != null)
+        //    {
+        //        numericStatus = CarStatus.Occupied;
+        //        displayStatusText = "תפוס";
+        //        blockingOrderEnd = activeOrder.ExpectedEndTime;
+
+        //        // חישוב מתי יהיה פנוי באמת (סוף הזמנה + באפר)
+        //        nextAvailableStart = activeOrder.ExpectedEndTime.AddMinutes(bufferMinutes);
+
+        //        if (now > activeOrder.ExpectedEndTime)
+        //            note = "הרכב באיחור בהחזרה";
+        //    }
+        //    // 2. האם יש הזמנה שעומדת להתחיל (בתוך טווח הבאפר)?
+        //    else if (upcomingOrder != null && upcomingOrder.StartTime <= now.AddMinutes(bufferMinutes))
+        //    {
+        //        numericStatus = CarStatus.Occupied;
+        //        displayStatusText = "תפוס"; // נחשב תפוס כי אי אפשר להזמין בטווח הזה
+        //        blockingOrderEnd = upcomingOrder.ExpectedEndTime;
+        //        nextAvailableStart = upcomingOrder.ExpectedEndTime.AddMinutes(bufferMinutes);
+        //        note = "מתכונן לנסיעה קרובה";
+        //    }
+        //    // 3. האם יש הזמנה בשעה הקרובה? (פנוי חלקית)
+        //    else if (upcomingOrder != null && upcomingOrder.StartTime <= now.AddHours(1))
+        //    {
+        //        numericStatus = CarStatus.PartiallyBooked;
+        //        displayStatusText = "פנוי חלקית";
+        //        // הרכב יהיה חסום החל מ-15 דקות לפני תחילת ההזמנה
+        //        blockingOrderEnd = upcomingOrder.StartTime.AddMinutes(-bufferMinutes);
+        //        nextAvailableStart = upcomingOrder.ExpectedEndTime.AddMinutes(bufferMinutes);
+        //        note = $"פנוי עד {blockingOrderEnd?.ToString("HH:mm")}";
+        //    }
+
+        //    // 4. הגנה: דלק ותחזוקה (דרוס סטטוסים קודמים)
+        //    if (car.NeedsMaintenance || car.FuelLevel < 15)
+        //    {
+        //        numericStatus = CarStatus.Maintenance;
+        //        displayStatusText = "בטיפול";
+        //        note = car.FuelLevel < 15 ? "נדרש תדלוק" : "בטיפול תקופתי";
+        //        blockingOrderEnd = null;
+        //        nextAvailableStart = null;
+        //    }
+
+        //    return new
+        //    {
+        //        Id = car.Id,
+        //        Model = car.Model,
+        //        Address = car.StartParking,
+        //        FuelLevel = car.FuelLevel,
+        //        Distance = car.Kilometers, // שיניתי לשם גנרי יותר אם ה-React מצפה לזה
+        //        Seats = car.Seats,
+        //        ImageUrl = car.ImageUrl,
+        //        Status = (int)numericStatus,
+        //        StatusLabel = displayStatusText,
+        //        Note = note,
+        //        BlockingOrderEnd = blockingOrderEnd,
+        //        NextAvailableStart = nextAvailableStart ?? now
+        //    };
+        //}
+        //        public CarStatus GetDetailedAvailabilityStatus(int carId, DateTime requestedStart, DateTime requestedEnd, out DateTime? conflictStart, out DateTime? conflictEnd)
+        //        {
+        //            conflictStart = null;
+        //            conflictEnd = null;
+        //            int buffer = 15;
+
+        //            var car = _carRepository.GetById(carId);
+        //            if (car == null) return CarStatus.Occupied;
+
+        //            // בדיקת תקינות בסיסית
+        //            if (car.NeedsMaintenance || car.FuelLevel < 15) return CarStatus.Maintenance;
+
+        //            // שליפה אחת מרוכזת של כל מה שרלוונטי (כולל Active)
+        //            var overlaps = _orderRepository.GetAll()
+        //                .Where(o => o.CarId == carId &&
+        //                            o.Status != OrderStatus.Canceled &&
+        //                            o.Status != OrderStatus.Completed &&
+        //                            o.StartTime.AddMinutes(-buffer) < requestedEnd &&
+        //                            o.ExpectedEndTime.AddMinutes(buffer) > requestedStart)
+        //                .OrderBy(o => o.StartTime)
+        //                .ToList();
+
+        //            if (!overlaps.Any()) return CarStatus.Available;
+
+        //            // השמת זמני קונפליקט לממשק המשתמש - כולל הבאפר כדי שהלקוח יראה מתי הרכב באמת משתחרר
+        //            conflictStart = overlaps.First().StartTime.AddMinutes(-buffer);
+        //            conflictEnd = overlaps.Last().ExpectedEndTime.AddMinutes(buffer);
+
+        //            // בדיקה אם יש נסיעה שמתרחשת ממש עכשיו (חשוב להתרעה למשתמש)
+        //            var activeOrder = overlaps.FirstOrDefault(o => o.Status == OrderStatus.Active);
+        //            if (activeOrder != null && requestedStart < activeOrder.ExpectedEndTime.AddMinutes(buffer))
+        //            {
+        //                // אם המשתמש מנסה להזמין זמן שמתנגש עם מישהו שכבר על הרכב
+        //                return CarStatus.Occupied;
+        //            }
+
+        //            // חישוב חלונות פנויים
+        //            var gaps = new List<(DateTime Start, DateTime End)>();
+        //            DateTime cursor = requestedStart;
+
+        //            foreach (var o in overlaps)
+        //            {
+        //                DateTime orderStartWithBuffer = o.StartTime.AddMinutes(-buffer);
+        //                if (orderStartWithBuffer > cursor)
+        //                {
+        //                    gaps.Add((cursor, orderStartWithBuffer));
+        //                }
+
+        //                DateTime orderEndWithBuffer = o.ExpectedEndTime.AddMinutes(buffer);
+        //                if (orderEndWithBuffer > cursor) cursor = orderEndWithBuffer;
+        //            }
+
+        //            if (cursor < requestedEnd)
+        //            {
+        //                gaps.Add((cursor, requestedEnd));
+        //            }
+
+        //            // ניתוח איכות החלונות
+        //            bool hasLongGap = gaps.Any(g => (g.End - g.Start).TotalMinutes >= 60);
+        //            bool hasGoodEdgeGap = gaps.Any(g =>
+        //                (g.Start == requestedStart || g.End == requestedEnd) &&
+        //                (g.End - g.Start).TotalMinutes >= 30);
+
+        //            if (hasLongGap || hasGoodEdgeGap)
+        //            {
+        //                return CarStatus.PartiallyBooked;
+        //            }
+
+        //            return CarStatus.Occupied;
+        //        }
+        //    }
+        //}
         public object GetCarAvailabilityInfo(int carId)
         {
             var car = _carRepository.GetById(carId);
             if (car == null) return null;
 
             var now = DateTime.Now;
-            int bufferMinutes = 15; // מומלץ למשוך מקונפיגורציה במידת האפשר
+            int buffer = 15;
 
-            // שליפת הזמנות רלוונטיות
             var orders = _orderRepository.GetAll()
-                .Where(o => o.CarId == carId &&
-                            o.Status != OrderStatus.Canceled &&
-                            o.Status != OrderStatus.Completed)
+                .Where(o => o.CarId == carId && o.Status != OrderStatus.Canceled && o.Status != OrderStatus.Completed)
                 .OrderBy(o => o.StartTime)
                 .ToList();
 
-            var activeOrder = orders.FirstOrDefault(o => o.Status == OrderStatus.Active);
-            // הזמנה עתידית - הראשונה שמתחילה אחרי "עכשיו"
-            var upcomingOrder = orders.FirstOrDefault(o => o.Status == OrderStatus.Pending && o.StartTime > now);
+            // האם תפוס ממש עכשיו? (כולל הבאפר של מי שסיים)
+            var currentOrder = orders.FirstOrDefault(o => now >= o.StartTime && now < o.ExpectedEndTime.AddMinutes(buffer));
+
+            // מי ההזמנה הבאה שעומדת להתחיל?
+            var upcomingOrder = orders.FirstOrDefault(o => o.StartTime >= now);
 
             CarStatus numericStatus = CarStatus.Available;
-            string displayStatusText = "פנוי";
-            DateTime? blockingOrderEnd = null;
-            DateTime? nextAvailableStart = null;
-            string note = "";
+            DateTime? nextAvailable = now;
+            DateTime? nextOrderStart = upcomingOrder?.StartTime;
 
-            // אסטרטגיית בדיקה:
-
-            // 1. האם יש נסיעה פעילה כרגע?
-            if (activeOrder != null)
+            if (currentOrder != null)
             {
                 numericStatus = CarStatus.Occupied;
-                displayStatusText = "תפוס";
-                blockingOrderEnd = activeOrder.ExpectedEndTime;
-
-                // חישוב מתי יהיה פנוי באמת (סוף הזמנה + באפר)
-                nextAvailableStart = activeOrder.ExpectedEndTime.AddMinutes(bufferMinutes);
-
-                if (now > activeOrder.ExpectedEndTime)
-                    note = "הרכב באיחור בהחזרה";
+                nextAvailable = currentOrder.ExpectedEndTime.AddMinutes(buffer);
             }
-            // 2. האם יש הזמנה שעומדת להתחיל (בתוך טווח הבאפר)?
-            else if (upcomingOrder != null && upcomingOrder.StartTime <= now.AddMinutes(bufferMinutes))
+            else if (upcomingOrder != null)
             {
-                numericStatus = CarStatus.Occupied;
-                displayStatusText = "תפוס"; // נחשב תפוס כי אי אפשר להזמין בטווח הזה
-                blockingOrderEnd = upcomingOrder.ExpectedEndTime;
-                nextAvailableStart = upcomingOrder.ExpectedEndTime.AddMinutes(bufferMinutes);
-                note = "מתכונן לנסיעה קרובה";
-            }
-            // 3. האם יש הזמנה בשעה הקרובה? (פנוי חלקית)
-            else if (upcomingOrder != null && upcomingOrder.StartTime <= now.AddHours(1))
-            {
-                numericStatus = CarStatus.PartiallyBooked;
-                displayStatusText = "פנוי חלקית";
-                // הרכב יהיה חסום החל מ-15 דקות לפני תחילת ההזמנה
-                blockingOrderEnd = upcomingOrder.StartTime.AddMinutes(-bufferMinutes);
-                nextAvailableStart = upcomingOrder.ExpectedEndTime.AddMinutes(bufferMinutes);
-                note = $"פנוי עד {blockingOrderEnd?.ToString("HH:mm")}";
+                // אם ההזמנה הבאה מתחילה בעוד פחות משעה, הרכב כבר נחשב "פנוי חלקית"
+                if ((upcomingOrder.StartTime - now).TotalMinutes < 60)
+                {
+                    numericStatus = CarStatus.PartiallyBooked;
+                }
             }
 
-            // 4. הגנה: דלק ותחזוקה (דרוס סטטוסים קודמים)
+            // טיפול ותחזוקה
             if (car.NeedsMaintenance || car.FuelLevel < 15)
             {
                 numericStatus = CarStatus.Maintenance;
-                displayStatusText = "בטיפול";
-                note = car.FuelLevel < 15 ? "נדרש תדלוק" : "בטיפול תקופתי";
-                blockingOrderEnd = null;
-                nextAvailableStart = null;
             }
 
             return new
@@ -1806,85 +1937,58 @@ namespace Service.Services
                 Model = car.Model,
                 Address = car.StartParking,
                 FuelLevel = car.FuelLevel,
-                Distance = car.Kilometers, // שיניתי לשם גנרי יותר אם ה-React מצפה לזה
+                Distance = car.Kilometers,
                 Seats = car.Seats,
                 ImageUrl = car.ImageUrl,
                 Status = (int)numericStatus,
-                StatusLabel = displayStatusText,
-                Note = note,
-                BlockingOrderEnd = blockingOrderEnd,
-                NextAvailableStart = nextAvailableStart ?? now
+                NextAvailableStart = nextAvailable, // יבש: מתי אפשר לקחת
+                NextOrderStart = nextOrderStart,   // יבש: מתי נתפס שוב
+                IsLate = currentOrder != null && now > currentOrder.ExpectedEndTime // האם הנהג מאחר
             };
         }
         public CarStatus GetDetailedAvailabilityStatus(int carId, DateTime requestedStart, DateTime requestedEnd, out DateTime? conflictStart, out DateTime? conflictEnd)
         {
             conflictStart = null;
             conflictEnd = null;
-            int buffer = 15;
+            int buffer = 15; // באפר קבוע של המערכת
 
             var car = _carRepository.GetById(carId);
-            if (car == null) return CarStatus.Occupied;
+            if (car == null || car.NeedsMaintenance || car.FuelLevel < 15)
+                return CarStatus.Maintenance;
 
-            // בדיקת תקינות בסיסית
-            if (car.NeedsMaintenance || car.FuelLevel < 15) return CarStatus.Maintenance;
-
-            // שליפה אחת מרוכזת של כל מה שרלוונטי (כולל Active)
+            // 1. שליפת כל ההזמנות שחופפות לזמן המבוקש
             var overlaps = _orderRepository.GetAll()
                 .Where(o => o.CarId == carId &&
                             o.Status != OrderStatus.Canceled &&
                             o.Status != OrderStatus.Completed &&
-                            o.StartTime.AddMinutes(-buffer) < requestedEnd &&
+                            o.StartTime < requestedEnd &&
                             o.ExpectedEndTime.AddMinutes(buffer) > requestedStart)
                 .OrderBy(o => o.StartTime)
                 .ToList();
 
-            if (!overlaps.Any()) return CarStatus.Available;
+            // פנוי לגמרי (0)
+            if (!overlaps.Any())
+                return CarStatus.Available;
 
-            // השמת זמני קונפליקט לממשק המשתמש - כולל הבאפר כדי שהלקוח יראה מתי הרכב באמת משתחרר
-            conflictStart = overlaps.First().StartTime.AddMinutes(-buffer);
+            // הגדרת "אזור אדום" לריאקט (מתי נתפס לראשונה ומתי משתחרר סופית כולל באפר)
+            conflictStart = overlaps.First().StartTime;
             conflictEnd = overlaps.Last().ExpectedEndTime.AddMinutes(buffer);
 
-            // בדיקה אם יש נסיעה שמתרחשת ממש עכשיו (חשוב להתרעה למשתמש)
-            var activeOrder = overlaps.FirstOrDefault(o => o.Status == OrderStatus.Active);
-            if (activeOrder != null && requestedStart < activeOrder.ExpectedEndTime.AddMinutes(buffer))
-            {
-                // אם המשתמש מנסה להזמין זמן שמתנגש עם מישהו שכבר על הרכב
-                return CarStatus.Occupied;
-            }
+            // 2. לוגיקת פנוי חלקית (1) - לפי החוקים שלך:
 
-            // חישוב חלונות פנויים
-            var gaps = new List<(DateTime Start, DateTime End)>();
-            DateTime cursor = requestedStart;
+            // א. האם יש חלון של לפחות שעה (60 דק') בתחילת הטווח המבוקש?
+            bool gapAtStart = (overlaps.First().StartTime - requestedStart).TotalMinutes >= 60;
 
-            foreach (var o in overlaps)
-            {
-                DateTime orderStartWithBuffer = o.StartTime.AddMinutes(-buffer);
-                if (orderStartWithBuffer > cursor)
-                {
-                    gaps.Add((cursor, orderStartWithBuffer));
-                }
+            // ב. האם יש חלון כלשהו (אפילו 1-5 דקות) בסוף הטווח המבוקש?
+            bool gapAtEnd = (requestedEnd - overlaps.Last().ExpectedEndTime.AddMinutes(buffer)).TotalMinutes > 0;
 
-                DateTime orderEndWithBuffer = o.ExpectedEndTime.AddMinutes(buffer);
-                if (orderEndWithBuffer > cursor) cursor = orderEndWithBuffer;
-            }
-
-            if (cursor < requestedEnd)
-            {
-                gaps.Add((cursor, requestedEnd));
-            }
-
-            // ניתוח איכות החלונות
-            bool hasLongGap = gaps.Any(g => (g.End - g.Start).TotalMinutes >= 60);
-            bool hasGoodEdgeGap = gaps.Any(g =>
-                (g.Start == requestedStart || g.End == requestedEnd) &&
-                (g.End - g.Start).TotalMinutes >= 30);
-
-            if (hasLongGap || hasGoodEdgeGap)
+            if (gapAtStart || gapAtEnd)
             {
                 return CarStatus.PartiallyBooked;
             }
 
+            // 3. תפוס לגמרי (2) - אם אין שעה לפני ואין דקה אחרי
             return CarStatus.Occupied;
         }
     }
-}
+    }

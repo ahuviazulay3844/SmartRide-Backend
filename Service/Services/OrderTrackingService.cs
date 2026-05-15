@@ -28,30 +28,45 @@ namespace Service.Services
             await HandleBufferingAndConflicts(now);
         }
 
-
         private async Task UpdatePendingOrders(DateTime now)
         {
-            var allOrders = _orderService.GetAll().ToList();
-
-            // סינון: רק הזמנותPending, שהזמן שלהן הגיע, ושאין עליהן כרגע הצעה להחלפה
-            var toActivate = allOrders
-                .Where(o => o.Status == OrderStatus.Pending &&
-                            o.StartTime <= now &&
-                            o.HasConflict == false) // הוספת הבדיקה הזו
-                .ToList();
+            var toActivate = _orderService.GetAll()
+        .Where(o => o.Status == OrderStatus.Pending && o.StartTime <= now && !o.HasConflict) 
+        .ToList();
 
             foreach (var order in toActivate)
             {
-                // כאן ה-Worker מנסה להפעיל את הרכב המקורי
-                // הוא יגיע לכאן רק אם User A סיים בזמן והכל תקין
+                // 1. האם יש משתמש קודם שעדיין לא סיים?
+                bool isCarBlockedByLateUser = _orderService.GetAll()
+                    .Any(o => o.CarId == order.CarId &&
+                              o.Status == OrderStatus.Active &&
+                              o.Id != order.Id);
+
+                // 2. האם הרכב בסטטוס שמונע נסיעה (למשל בטיפול)?
+                var car = _carService.GetById(order.CarId);
+                bool isCarInMaintenance = car?.Status == CarStatus.Maintenance;
+
+                if (isCarBlockedByLateUser || isCarInMaintenance)
+                {
+                    // מפעיל את תהליך הצעת רכב חלופי
+                    await _orderService.ProcessLateCustomerConflict(order.CarId);
+
+                    Console.WriteLine($"[Worker] Order {order.Id} deferred. Reason: " +
+                        (isCarBlockedByLateUser ? "Car is still busy" : "Car is in maintenance"));
+
+                    continue;
+                }
+
+                // 3. הכל תקין - מפעילים את הנסיעה
                 await _orderService.UpdateStatusAsync(order.Id, OrderStatus.Active);
 
-                var car = _carService.GetById(order.CarId);
                 if (car != null)
                 {
                     car.Status = CarStatus.Occupied;
                     _carService.Update(car.Id, car);
                 }
+
+                Console.WriteLine($"[Worker] Order {order.Id} is now Active.");
             }
         }
         private async Task UpdateActiveTripsProgress()
