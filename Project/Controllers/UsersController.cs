@@ -23,17 +23,33 @@ namespace Project.Controllers
             this.userService = userService;
         }
 
+        //[HttpPost("login")]
+        //public IActionResult Login([FromBody] LoginDto loginDto)
+        //{
+        //    var token = userService.Login(loginDto);
+        //    if (string.IsNullOrEmpty(token))
+        //    {
+        //        return Unauthorized(new { message = "אימייל או סיסמה שגויים, או שהמשתמש חסום" });
+        //    }
+        //    return Ok(token);
+        //}
+
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginDto loginDto)
         {
-            var token = userService.Login(loginDto);
-            if (string.IsNullOrEmpty(token))
-            {
-                return Unauthorized(new { message = "אימייל או סיסמה שגויים, או שהמשתמש חסום" });
-            }
-            return Ok(token);
-        }
+            string token;
+            int status = userService.Login(loginDto, out token);
 
+            return status switch
+            {
+                // שינוי קטן: מחזירים אובייקט עם המילה token
+                200 => Ok(new { token = token }),
+                404 => NotFound(new { message = "UserNotFound" }),
+                401 => Unauthorized(new { message = "WrongPassword" }),
+                403 => Forbid(),
+                _ => BadRequest()
+            };
+        }
         [HttpGet]
         [Authorize(Roles = "admin")]
         public IActionResult Get()

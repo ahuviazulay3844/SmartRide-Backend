@@ -44,15 +44,15 @@ namespace Service.Services
             var userIdStr = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             int currentUserId = int.Parse(userIdStr ?? "0");
             if (currentUserId == 0) return null;
+      
+            // 2. תיקון זמנים לזמן מקומי
+            item.StartTime = item.StartTime.ToLocalTime();
+            item.ExpectedEndTime = item.ExpectedEndTime.ToLocalTime();
             if (IsTimeInShabbat(item.StartTime) || IsTimeInShabbat(item.ExpectedEndTime))
             {
                 // מחזירים null או זורקים שגיאה כדי שההזמנה לא תתבצע
                 return null;
             }
-            // 2. תיקון זמנים לזמן מקומי
-            item.StartTime = item.StartTime.ToLocalTime();
-            item.ExpectedEndTime = item.ExpectedEndTime.ToLocalTime();
-
             // 3. שליפת ישויות ובדיקות חסימה
             var car = _carRepository.GetById(item.CarId);
             var user = _userRepository.GetById(currentUserId);
@@ -286,13 +286,9 @@ namespace Service.Services
             if (order.EndTime.Value > order.ExpectedEndTime)
             {
                 var lateMinutes = (order.EndTime.Value - order.ExpectedEndTime).TotalMinutes;
-                order.LateFee = (decimal)(lateMinutes * 1);
+                order.LateFee += (decimal)(lateMinutes * 1);
             }
-            else
-            {
-                order.LateFee = 0;
-            }
-
+           
             // 3. עדכון נתונים
             // חשוב: נחשב את המרחק לפי ההפרש האמיתי במונה הרכב (EndMileage - StartMileage)
             // אם ה-reportedMileage שהגיע מהלקוח קטן מההתחלה, נשתמש ב-trackedKm שקיים ב-DB
@@ -307,25 +303,37 @@ namespace Service.Services
                 int effectiveFuelTimes = Math.Min(fuelTime, 2);
                 decimal fuelBonus = effectiveFuelTimes * car.PricePerHour;
                 user.AccountBalance += fuelBonus;
-                car.FuelLevel = 100;
             }
 
             // 5. חישוב מחיר סופי
-            order.TotalPrice = order.BasePrice + (decimal)(order.DistanceDrivenKm * 1.5) + order.LateFee;
-            if (user.IsNewDriver) order.TotalPrice += 50;
+            decimal totalPriceCalculated = order.BasePrice + (decimal)(order.DistanceDrivenKm * 1.5) + order.LateFee;
+            if (user.IsNewDriver) totalPriceCalculated += 50;
 
             // 6. הנחת דרגה
             decimal discount = GetRankDiscount(user.Rank);
-            if (discount > 0) order.TotalPrice -= (discount * order.TotalPrice);
+            if (discount > 0) totalPriceCalculated -= (discount * totalPriceCalculated);
 
-            // 7. קיזוז יתרה ותשלום
-            order.TotalPrice = Math.Max(0, order.TotalPrice - user.AccountBalance);
+            totalPriceCalculated = Math.Max(0, totalPriceCalculated - order.DiscountAmount);
+            //// 7. קיזוז יתרה ותשלום
+            //order.TotalPrice = Math.Max(0, order.TotalPrice - user.AccountBalance);
+            //order.IsPaid = true;
+            //// 8. עדכון ישויות
+            //user.CompletedOrdersCount++;
+            //user.Rank = CalculateNewRank(user.CompletedOrdersCount);
+            ////user.AccountBalance = 0;
+
+            if (user.AccountBalance >= totalPriceCalculated)
+            {
+                user.AccountBalance -= totalPriceCalculated; // מורידים מהיתרה רק את מה ששולם
+                order.TotalPrice = 0; // הכל שולם מהיתרה
+            }
+            else
+            {
+                order.TotalPrice = totalPriceCalculated - user.AccountBalance; // היתרה מקטינה את החוב
+                user.AccountBalance = 0; // כל היתרה נוצלה
+            }
+
             order.IsPaid = true;
-
-            // 8. עדכון ישויות
-            user.CompletedOrdersCount++;
-            user.Rank = CalculateNewRank(user.CompletedOrdersCount);
-            user.AccountBalance = 0;
 
             car.TotalOrdersCount++;
             car.Kilometers = actualEndMileage; // עדכון הקילומטראז' הסופי ברכב

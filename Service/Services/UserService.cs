@@ -133,15 +133,37 @@ namespace Service.Services
             return true;
         }
 
-        public string Login(LoginDto l) 
+        //public string Login(LoginDto l) 
+        //{
+        //    UserDto user = Exist(l);
+        //    if (user != null && !user.IsBlocked)
+        //    {
+        //        var token = GenerateToken(user);
+        //        return token;
+        //    }
+        //    return null;
+        //}
+        public int Login(LoginDto l, out string token)
         {
-            UserDto user = Exist(l);
-            if (user != null && !user.IsBlocked)
+            token = null;
+            // 1. בדיקה אם המייל בכלל קיים במערכת
+            var userByEmail = GetByEmail(l.Email); // פונקציה שבודקת רק מייל
+            if (userByEmail == null)
             {
-                var token = GenerateToken(user);
-                return token;
+                return 404; // המייל לא קיים - "שניהם לא נכונים"
             }
-            return null;
+
+            // 2. בדיקה אם המשתמש קיים עם הסיסמה (הפונקציה המקורית שלך)
+            UserDto user = Exist(l);
+            if (user == null)
+            {
+                return 401; // המייל קיים, אבל הסיסמה לא נכונה - "אחד מהם שגוי"
+            }
+
+            if (user.IsBlocked) return 403; // חסום
+
+            token = GenerateToken(user);
+            return 200; // הצלחה
         }
         private string GenerateToken(UserDto user)
         {
