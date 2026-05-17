@@ -53,6 +53,11 @@ namespace Service.Services
                 // מחזירים null או זורקים שגיאה כדי שההזמנה לא תתבצע
                 return null;
             }
+            if (IsUserOverlap(currentUserId, item.StartTime, item.ExpectedEndTime))
+            {
+                // המשתמש מנסה להזמין שתי הזמנות חופפות - חוסמים!
+                return null;
+            }
             // 3. שליפת ישויות ובדיקות חסימה
             var car = _carRepository.GetById(item.CarId);
             var user = _userRepository.GetById(currentUserId);
