@@ -974,6 +974,7 @@ namespace Service.Services
             return userRole == "admin" || order.UserId == currentUserId;
         }
 
+
         public object GetCarAvailabilityInfo(int carId)
         {
             throw new NotImplementedException();
@@ -1748,7 +1749,8 @@ namespace Service.Services
                     StartTime = DateTime.Now,
                     ExpectedEndTime = DateTime.Now.Add(duration),
                     Status = OrderStatus.Active,
-                    ActualOpeningTime = DateTime.Now,
+                    //ActualOpeningTime = DateTime.Now,
+                    ActualOpeningTime = null,
                     BasePrice = oldOrder.BasePrice,
                     DiscountAmount = oldOrder.DiscountAmount, // זו השעה חינם
                     TotalPrice = Math.Max(0, oldOrder.BasePrice - oldOrder.DiscountAmount),
