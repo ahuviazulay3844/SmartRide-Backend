@@ -143,27 +143,76 @@ namespace Service.Services
         //    }
         //    return null;
         //}
+        //public int Login(LoginDto l, out string token)
+        //{
+        //    token = null;
+        //    // 1. בדיקה אם המייל בכלל קיים במערכת
+        //    var userByEmail = GetByEmail(l.Email); // פונקציה שבודקת רק מייל
+        //    if (userByEmail == null)
+        //    {
+        //        return 404; // המייל לא קיים - "שניהם לא נכונים"
+        //    }
+
+        //    // 2. בדיקה אם המשתמש קיים עם הסיסמה (הפונקציה המקורית שלך)
+        //    UserDto user = Exist(l);
+        //    if (user == null)
+        //    {
+        //        return 401; // המייל קיים, אבל הסיסמה לא נכונה - "אחד מהם שגוי"
+        //    }
+
+        //    if (user.IsBlocked) return 403; // חסום
+
+        //    token = GenerateToken(user);
+        //    return 200; // הצלחה
+        //}
+        //public int Login(LoginDto l, out string token)
+        //{
+        //    token = null;
+
+        //    // 1. שולפים את הישות מה-Repository לפי אימייל בלבד
+        //    var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == l.Email);
+        //    if (user == null) return 404;
+
+        //    bool isCorrect = false;
+
+        //    // 2. בדיקה: האם הסיסמה ב-DB היא מוצפנת (Hash)?
+        //    // BCrypt תמיד מתחיל ב-$2
+        //    if (!string.IsNullOrEmpty(user.PasswordHash) && user.PasswordHash.StartsWith("$2"))
+        //    {
+        //        isCorrect = BCrypt.Net.BCrypt.Verify(l.Pass, user.PasswordHash);
+        //    }
+        //    else
+        //    {
+        //        isCorrect = (user.PasswordHash == l.Pass);
+        //    }
+
+        //    if (!isCorrect) return 401; // סיסמה שגויה
+        //    if (user.IsBlocked) return 403;
+
+        //    // 4. הצלחה - מייצרים טוקן
+        //    token = GenerateToken(_mapper.Map<UserDto>(user));
+        //    return 200;
+        //}
         public int Login(LoginDto l, out string token)
         {
             token = null;
-            // 1. בדיקה אם המייל בכלל קיים במערכת
-            var userByEmail = GetByEmail(l.Email); // פונקציה שבודקת רק מייל
-            if (userByEmail == null)
-            {
-                return 404; // המייל לא קיים - "שניהם לא נכונים"
-            }
 
-            // 2. בדיקה אם המשתמש קיים עם הסיסמה (הפונקציה המקורית שלך)
-            UserDto user = Exist(l);
-            if (user == null)
-            {
-                return 401; // המייל קיים, אבל הסיסמה לא נכונה - "אחד מהם שגוי"
-            }
+            // 1. שליפת המשתמש לפי אימייל
+            var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == l.Email);
+            if (user == null) return 404;
 
-            if (user.IsBlocked) return 403; // חסום
+            // 2. בדיקת סיסמה מוצפנת באמצעות BCrypt
+            // הפונקציה Verify לוקחת את l.Pass הפשוט ובודקת אותו מול ה-Hash ב-DB
+            bool isCorrect = !string.IsNullOrEmpty(user.PasswordHash) &&
+                             BCrypt.Net.BCrypt.Verify(l.Pass, user.PasswordHash);
 
-            token = GenerateToken(user);
-            return 200; // הצלחה
+            if (!isCorrect) return 401; // סיסמה שגויה
+
+            if (user.IsBlocked) return 403; // משתמש חסום
+
+            // 3. הצלחה - יצירת טוקן
+            token = GenerateToken(_mapper.Map<UserDto>(user));
+            return 200;
         }
         private string GenerateToken(UserDto user)
         {
