@@ -50,12 +50,18 @@ namespace Project.Controllers
        // [Authorize(Roles = "user")]
         public async Task<IActionResult> Post([FromBody] OrderDto item)
         {
-            var createdOrder =await orderService.Add(item);
+            if (item.StartTime < DateTime.Now.AddMinutes(-5))
+            {
+                return BadRequest(new { message = "לא ניתן להזמין לתאריך ושעה שעברו" });
+            }
+
+            var createdOrder = await orderService.Add(item);
             if (createdOrder == null)
                 return BadRequest(new { message = "הרכב אינו פנוי בזמנים אלו" });
 
             return Created("", new { message = "ההזמנה בוצעה בהצלחה", data = createdOrder });
         }
+        
 
         [HttpPut("{id}")]
         [Authorize(Roles = "user")]
