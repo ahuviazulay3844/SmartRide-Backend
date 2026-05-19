@@ -1892,25 +1892,19 @@ namespace Service.Services
         {
             var car = _carRepository.GetById(carId);
             if (car == null) return null;
-
             var now = DateTime.Now;
             int buffer = 15;
-
             var orders = _orderRepository.GetAll()
                 .Where(o => o.CarId == carId && o.Status != OrderStatus.Canceled && o.Status != OrderStatus.Completed)
                 .OrderBy(o => o.StartTime)
                 .ToList();
-
             // האם תפוס ממש עכשיו? (כולל הבאפר של מי שסיים)
             var currentOrder = orders.FirstOrDefault(o => now >= o.StartTime && now < o.ExpectedEndTime.AddMinutes(buffer));
-
             // מי ההזמנה הבאה שעומדת להתחיל?
             var upcomingOrder = orders.FirstOrDefault(o => o.StartTime >= now);
-
             CarStatus numericStatus = CarStatus.Available;
             DateTime? nextAvailable = now;
             DateTime? nextOrderStart = upcomingOrder?.StartTime;
-
             if (currentOrder != null)
             {
                 numericStatus = CarStatus.Occupied;
@@ -1924,13 +1918,11 @@ namespace Service.Services
                     numericStatus = CarStatus.PartiallyBooked;
                 }
             }
-
             // טיפול ותחזוקה
             if (car.NeedsMaintenance || car.FuelLevel < 15)
             {
                 numericStatus = CarStatus.Maintenance;
             }
-
             return new
             {
                 Id = car.Id,
@@ -1956,6 +1948,27 @@ namespace Service.Services
             if (car == null || car.NeedsMaintenance || car.FuelLevel < 15)
                 return CarStatus.Maintenance;
 
+            //הוספתי עכשיו 
+       //     var activeOrder = _orderRepository.GetAll()
+       //.FirstOrDefault(o => o.CarId == carId && o.Status == OrderStatus.Active);
+
+       //     if (activeOrder != null)
+       //     {
+       //         // אם מישהו בתוך הרכב, והמשתמש החדש רוצה להזמין לזמן שחופף ל"עכשיו"
+       //         // אנחנו נחשיב את הרכב כתפוס לפחות עד עכשיו + באפר
+       //         DateTime currentPhysicallyOccupiedUntil = (activeOrder.ExpectedEndTime > DateTime.Now
+       //             ? activeOrder.ExpectedEndTime
+       //             : DateTime.Now).AddMinutes(buffer);
+
+       //         if (requestedStart < currentPhysicallyOccupiedUntil)
+       //         {
+       //             conflictStart = activeOrder.StartTime;
+       //             conflictEnd = currentPhysicallyOccupiedUntil;
+       //             return CarStatus.Occupied; // תפוס פיזית!
+       //         }
+       //     }
+       //     //עד פה
+
             // 1. שליפת כל ההזמנות שחופפות לזמן המבוקש
             var overlaps = _orderRepository.GetAll()
                 .Where(o => o.CarId == carId &&
@@ -1973,20 +1986,15 @@ namespace Service.Services
             // הגדרת "אזור אדום" לריאקט (מתי נתפס לראשונה ומתי משתחרר סופית כולל באפר)
             conflictStart = overlaps.First().StartTime;
             conflictEnd = overlaps.Last().ExpectedEndTime.AddMinutes(buffer);
-
             // 2. לוגיקת פנוי חלקית (1) - לפי החוקים שלך:
-
             // א. האם יש חלון של לפחות שעה (60 דק') בתחילת הטווח המבוקש?
             bool gapAtStart = (overlaps.First().StartTime - requestedStart).TotalMinutes >= 60;
-
             // ב. האם יש חלון כלשהו (אפילו 1-5 דקות) בסוף הטווח המבוקש?
             bool gapAtEnd = (requestedEnd - overlaps.Last().ExpectedEndTime.AddMinutes(buffer)).TotalMinutes > 0;
-
             if (gapAtStart || gapAtEnd)
             {
                 return CarStatus.PartiallyBooked;
             }
-
             // 3. תפוס לגמרי (2) - אם אין שעה לפני ואין דקה אחרי
             return CarStatus.Occupied;
         }

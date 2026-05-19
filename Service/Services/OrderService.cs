@@ -1034,34 +1034,115 @@ namespace Service.Services
         }
 
         // 1. פונקציית הארכה לנהג המאחר (עבור המודאל שלו)
+        //        public async Task<bool> RequestExtension(int orderId)
+        //        {
+        //    var order = _orderRepository.GetById(orderId);
+        //    if (order == null || order.Status != OrderStatus.Active) return false;
+
+        //    // 1. האם יש מישהו שמחכה לרכב הזה ממש עכשיו?
+        //    var conflictOrder = _orderRepository.GetAll().FirstOrDefault(o =>
+        //        o.CarId == order.CarId && o.Id != orderId &&
+        //        o.Status == OrderStatus.Pending &&
+        //        o.StartTime < order.ExpectedEndTime.AddHours(1));
+
+        //    if (conflictOrder != null)
+        //    {
+        //        // 2. ניסיון אקטיבי להעביר את הלקוח הבא לרכב אחר
+        //        bool reassignSuccess = await ProcessLateCustomerConflict(order.CarId);
+
+        //        // אם לא הצלחנו למצוא חלופי, רק אז נחסום את ההארכה
+        //        if (!reassignSuccess) return false;
+        //    }
+
+        //    // 3. אם אין קונפליקט או שהעברנו את המשתמש הבא בהצלחה - מאריכים
+        //    var car = _carRepository.GetById(order.CarId);
+        //    order.ExpectedEndTime = order.ExpectedEndTime.AddHours(1);
+        //    order.TotalPrice += car.PricePerHour;
+
+        //    return _orderRepository.Update(orderId, order);
+        //}
+        //public async Task<bool> RequestExtension(int orderId)
+        //{
+        //    var order = _orderRepository.GetById(orderId);
+        //    if (order == null || order.Status != OrderStatus.Active) return false;
+
+        //    // הגדרת זמן היעד החדש: עכשיו + שעה
+        //    var newProposedEndTime = DateTime.Now.AddHours(1);
+
+        //    // 1. שמירת דקות האיחור שהיו עד עכשיו (לפני האיפוס)
+        //    if (DateTime.Now > order.ExpectedEndTime)
+        //    {
+        //        var minutesLate = (DateTime.Now - order.ExpectedEndTime).TotalMinutes;
+        //        order.LateFee += (decimal)minutesLate;
+        //        order.TotalPrice += (decimal)minutesLate;
+        //    }
+
+        //    // 2. בדיקת קונפליקטים מול זמן היעד *החדש*
+        //    var conflictOrder = _orderRepository.GetAll().FirstOrDefault(o =>
+        //        o.CarId == order.CarId && o.Id != orderId &&
+        //        o.Status == OrderStatus.Pending &&
+        //        o.StartTime < newProposedEndTime); // בדיקה מול הזמן החדש!
+
+        //    if (conflictOrder != null)
+        //    {
+        //        bool reassignSuccess = await ProcessLateCustomerConflict(order.CarId);
+        //        if (!reassignSuccess) return false;
+        //    }
+
+        //    // 3. עדכון זמן הסיום החדש
+        //    order.ExpectedEndTime = newProposedEndTime;
+
+        //    // 4. חיוב מחיר שעה רגילה
+        //    var car = _carRepository.GetById(order.CarId);
+        //    order.TotalPrice += car.PricePerHour;
+
+        //    return _orderRepository.Update(orderId, order);
+        //}
+
         public async Task<bool> RequestExtension(int orderId)
         {
-    var order = _orderRepository.GetById(orderId);
-    if (order == null || order.Status != OrderStatus.Active) return false;
+            var order = _orderRepository.GetById(orderId);
+            if (order == null || order.Status != OrderStatus.Active) return false;
 
-    // 1. האם יש מישהו שמחכה לרכב הזה ממש עכשיו?
-    var conflictOrder = _orderRepository.GetAll().FirstOrDefault(o =>
-        o.CarId == order.CarId && o.Id != orderId &&
-        o.Status == OrderStatus.Pending &&
-        o.StartTime < order.ExpectedEndTime.AddHours(1));
+            // הגדרת זמן היעד החדש: עכשיו + שעה
+            var newProposedEndTime = DateTime.Now.AddHours(1);
 
-    if (conflictOrder != null)
-    {
-        // 2. ניסיון אקטיבי להעביר את הלקוח הבא לרכב אחר
-        bool reassignSuccess = await ProcessLateCustomerConflict(order.CarId);
-        
-        // אם לא הצלחנו למצוא חלופי, רק אז נחסום את ההארכה
-        if (!reassignSuccess) return false;
-    }
+            // 1. שמירת דקות האיחור שהיו עד עכשיו (לפני האיפוס)
+            if (DateTime.Now > order.ExpectedEndTime)
+            {
+                var minutesLate = (DateTime.Now - order.ExpectedEndTime).TotalMinutes;
+                order.LateFee += (decimal)minutesLate;
+                order.TotalPrice += (decimal)minutesLate;
+            }
 
-    // 3. אם אין קונפליקט או שהעברנו את המשתמש הבא בהצלחה - מאריכים
-    var car = _carRepository.GetById(order.CarId);
-    order.ExpectedEndTime = order.ExpectedEndTime.AddHours(1);
-    order.TotalPrice += car.PricePerHour;
+            // 2. בדיקת קונפליקטים מול זמן היעד *החדש*
+            var conflictOrder = _orderRepository.GetAll().FirstOrDefault(o =>
+                o.CarId == order.CarId && o.Id != orderId &&
+                o.Status == OrderStatus.Pending &&
+                o.StartTime < newProposedEndTime);
 
-    return _orderRepository.Update(orderId, order);
-}
+            if (conflictOrder != null)
+            {
+                bool reassignSuccess = await ProcessLateCustomerConflict(order.CarId);
+                if (!reassignSuccess) return false;
+            }
 
+            // 3. עדכון זמן הסיום החדש
+            order.ExpectedEndTime = newProposedEndTime;
+
+            // 4. חיוב מחיר שעה רגילה - עדכון מחיר הבסיס והמחיר הסופי
+            var car = _carRepository.GetById(order.CarId);
+            if (car != null)
+            {
+                // התיקון שביקשת: הוספת מחיר השעה לעלות ההשכרה הבסיסית
+                order.BasePrice += car.PricePerHour;
+
+                // הוספה למחיר הסופי
+                order.TotalPrice += car.PricePerHour;
+            }
+
+            return _orderRepository.Update(orderId, order);
+        }
         // 2. פונקציית הקונפליקט - מחפשת רכב חלופי ללקוח הבא (User B)
         //public async Task<bool> ProcessLateCustomerConflict(int carId)
         //{
