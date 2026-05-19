@@ -37,5 +37,6 @@ namespace Service.Interfaces
         Task<bool> RequestExtension(int orderId);
         bool ConfirmReplacement(int orderId, bool accept);
         bool ReportRefuel(int orderId);
+        OrderDto MapToDetailedDto(Order order);
     }
 }

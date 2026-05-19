@@ -62,7 +62,7 @@ namespace Project.Controllers
         //     return Created("", new { message = "ההזמנה בוצעה בהצלחה", data = createdOrder });
         // }
         [HttpPost]
-        //// [Authorize(Roles = "user")]
+        [Authorize(Roles = "user")]
         public async Task<IActionResult> Post([FromBody] OrderDto item)
         {
             // הגדלת הטווח ל-30 דקות אחורה כדי למנוע חסימה של משתמשים איטיים

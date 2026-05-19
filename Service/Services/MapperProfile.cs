@@ -63,9 +63,19 @@ namespace Service.Services
         .ForMember(dest => dest.Status,
             opt => opt.MapFrom(src => src.Status));
 
+            //CreateMap<OrderDto, Order>()
+            //    .ForMember(dest => dest.Id, opt => opt.Ignore())
+            //    .ForMember(dest => dest.Car, opt => opt.Ignore())
+            //    .ForMember(dest => dest.User, opt => opt.Ignore())
+            //    .ForMember(dest => dest.TotalDays, opt => opt.MapFrom(src => src.TotalDays))
+            //    .ForMember(dest => dest.TotalHours, opt => opt.MapFrom(src => src.TotalHours));
             CreateMap<OrderDto, Order>()
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.Car, opt => opt.Ignore())
                 .ForMember(dest => dest.User, opt => opt.Ignore())
+                .ForMember(dest => dest.Inspection, opt => opt.Ignore())
+                .ForMember(dest => dest.Feedback, opt => opt.Ignore())
+                .ForMember(dest => dest.Coupon, opt => opt.Ignore())
                 .ForMember(dest => dest.TotalDays, opt => opt.MapFrom(src => src.TotalDays))
                 .ForMember(dest => dest.TotalHours, opt => opt.MapFrom(src => src.TotalHours));
             // מיפוי עבור השאלון - דו כיווני

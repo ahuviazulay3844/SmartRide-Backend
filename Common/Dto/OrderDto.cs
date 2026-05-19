@@ -10,7 +10,6 @@ namespace Common.Dto
 
     public class OrderDto
     {
-
         public int Id { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime ExpectedEndTime { get; set; }
@@ -41,6 +40,16 @@ namespace Common.Dto
         public int? SuggestedReplacementCarId { get; set; }
         public string? SuggestedCarModel { get; set; }
         public string? SuggestedCarLocation { get; set; }
+        public decimal TotalBeforeDiscounts { get; set; }
 
+        public List<PriceBreakdownLine> PriceBreakdown { get; set; } = new List<PriceBreakdownLine>();
+
+
+    }
+    public class PriceBreakdownLine
+    {
+        public string Label { get; set; }     // שם השורה: "נהג חדש", "קילומטראז'"
+        public decimal Amount { get; set; }   // הסכום: 50, 12.5...
+        public bool IsDiscount { get; set; }  // האם זה במינוס (בונוס/יתרה)?
     }
 }

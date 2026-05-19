@@ -81,10 +81,13 @@ namespace Service.Services
             }
             // 5. יצירת הזמנה חדשה
             Order newOrder = _mapper.Map<Order>(item);
+            newOrder.Id = 0;
             newOrder.CarId = item.CarId;
             newOrder.UserId = currentUserId;
             newOrder.StartMileage = car.Kilometers;
             newOrder.BasePrice = basePrice;
+            newOrder.TotalPrice = basePrice;
+
             newOrder.Status = OrderStatus.Pending; // הזמנה ממתינה
             newOrder.IsPaid = false;
             newOrder.DistanceDrivenKm = 0;
@@ -109,12 +112,16 @@ namespace Service.Services
                     car.Status = CarStatus.PartiallyBooked;
                     _carRepository.Update(car.Id, car);
                 }
+                saved.Car = car;
+                saved.User = user;
+                //  try { await _emailService.SendOrderConfirmationAsync(user.Email, saved.Id, car.Model); }
+                //  catch { /* כשל במייל לא עוצר הזמנה */ }
+                return MapToDetailedDto(saved);
 
-              //  try { await _emailService.SendOrderConfirmationAsync(user.Email, saved.Id, car.Model); }
-              //  catch { /* כשל במייל לא עוצר הזמנה */ }
             }
 
-            return _mapper.Map<OrderDto>(saved);
+            //return _mapper.Map<OrderDto>(saved);
+            return null;
         }
 
         //public bool IsCarBusy(OrderDto item)
@@ -144,18 +151,18 @@ namespace Service.Services
                 item.StartTime < o.ExpectedEndTime && // התחלה לפני סיום קודמת
                 item.ExpectedEndTime > o.StartTime);  // סיום אחרי התחלה קודמת
         }
-        public IEnumerable<OrderDto> GetAll()
-        {
-            var orders = _orderRepository.GetAll();
-            return _mapper.Map<IEnumerable<OrderDto>>(orders);
-        }
+        //public IEnumerable<OrderDto> GetAll()
+        //{
+        //    var orders = _orderRepository.GetAll();
+        //    return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        //}
 
-        public OrderDto? GetById(int id)
-        {
-            var order = _orderRepository.GetById(id);
-            if (order == null) return null;
-            return _mapper.Map<OrderDto>(order);
-        }
+        //public OrderDto? GetById(int id)
+        //{
+        //    var order = _orderRepository.GetById(id);
+        //    if (order == null) return null;
+        //    return _mapper.Map<OrderDto>(order);
+        //}
 
         public bool Update(int id, OrderDto item)
         {
@@ -961,11 +968,11 @@ namespace Service.Services
             return _mapper.Map<IEnumerable<OrderDto>>(orders);
         }
 
-        public IEnumerable<OrderDto> GetOrdersByUserId(int userId)
-        {
-            var orders = _orderRepository.GetAll().Where(o => o.UserId == userId);
-            return _mapper.Map<IEnumerable<OrderDto>>(orders);
-        }
+        //public IEnumerable<OrderDto> GetOrdersByUserId(int userId)
+        //{
+        //    var orders = _orderRepository.GetAll().Where(o => o.UserId == userId);
+        //    return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        //}
         //בדיקה האם המשתמש מורשה לבצע פעולה על הזמנה מסוימת (בעל ההזמנה או אדמין)
         private bool IsUserAuthorized(Order order)
         {
@@ -1827,6 +1834,166 @@ namespace Service.Services
 
             _orderRepository.Update(waitingOrder.Id, waitingOrder);
             return replacementCar != null;
+        }
+        public OrderDto? GetById(int id)
+        {
+            var order = _orderRepository.GetById(id);
+            if (order == null) return null;
+
+            // טעינת ישויות קשורות
+            order.User = _userRepository.GetById(order.UserId);
+            order.Car = _carRepository.GetById(order.CarId);
+
+            return MapToDetailedDto(order);
+        }
+
+        //public IEnumerable<OrderDto> GetAll()
+        //{
+        //    var orders = _orderRepository.GetAll().ToList();
+        //    // מחזיר את כל ההזמנות עם הפירוט המלא
+        //    return orders.Select(o => MapToDetailedDto(o));
+        //}
+
+        // פונקציה חייבת להיות PUBLIC כי היא ב-Interface
+        //public OrderDto MapToDetailedDto(Order order)
+        //{
+        //    var dto = _mapper.Map<OrderDto>(order);
+        //    dto.PriceBreakdown = new List<PriceBreakdownLine>();
+
+        //    // 1. עלות בסיס
+        //    dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "עלות השכרה בסיסית", Amount = order.BasePrice });
+
+        //    // 2. קילומטראז'
+        //    decimal pricePerKm = order.Car?.PricePerKm ?? 1.5m;
+        //    decimal distCost = (decimal)((order.DistanceDrivenKm ?? 0) * (double)pricePerKm);
+        //    if (distCost > 0)
+        //        dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = $"מרחק נסיעה ({order.DistanceDrivenKm} ק\"מ)", Amount = distCost });
+
+        //    // 3. תוספת נהג חדש
+        //    if (order.User != null && order.User.IsNewDriver)
+        //        dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "תוספת נהג חדש (ביטוח)", Amount = 50 });
+
+        //    // 4. קנס איחור
+        //    if (order.LateFee > 0)
+        //        dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "דמי איחור בהחזרה", Amount = order.LateFee });
+
+        //    // 5. בונוס תדלוק (זיכוי)
+        //    if (order.DidCustomerRefuel)
+        //        dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "בונוס מילוי דלק", Amount = 30, IsDiscount = true });
+
+        //    // 6. הנחת פיצוי / קופון (זיכוי)
+        //    if (order.DiscountAmount > 0)
+        //        dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "הטבת פיצוי / הנחה", Amount = order.DiscountAmount, IsDiscount = true });
+
+        //    // 7. חישוב יתרה או חוב (הדלתא)
+        //    decimal subTotal = dto.PriceBreakdown.Sum(x => x.IsDiscount ? -x.Amount : x.Amount);
+
+        //    if (subTotal > order.TotalPrice)
+        //    {
+        //        dto.PriceBreakdown.Add(new PriceBreakdownLine
+        //        {
+        //            Label = "שולם באמצעות יתרה צבורה",
+        //            Amount = subTotal - order.TotalPrice,
+        //            IsDiscount = true
+        //        });
+        //    }
+        //    else if (subTotal < order.TotalPrice && order.Status == OrderStatus.Completed)
+        //    {
+        //        dto.PriceBreakdown.Add(new PriceBreakdownLine
+        //        {
+        //            Label = "חוב קודם / קנס (לכלוך/דיווח)",
+        //            Amount = order.TotalPrice - subTotal,
+        //            IsDiscount = false
+        //        });
+        //    }
+
+        //    return dto;
+        //}
+        // 1. עדכון שליפת ההזמנות של משתמש ספציפי (הפונקציה שהריאקט שלך משתמש בה!)
+        public IEnumerable<OrderDto> GetOrdersByUserId(int userId)
+        {
+            var orders = _orderRepository.GetAll()
+                .Where(o => o.UserId == userId)
+                .ToList();
+
+            // חובה להעביר כל הזמנה דרך המיפוי המפורט לפני שהיא יוצאת לריאקט
+            return orders.Select(o => {
+                // טעינת ישויות חסרות לצורך חישוב הקילומטראז' בפירוט
+                o.Car = _carRepository.GetById(o.CarId);
+                o.User = _userRepository.GetById(o.UserId);
+                return MapToDetailedDto(o);
+            }).ToList();
+        }
+
+        // 2. עדכון שליפת כל ההזמנות (לאדמין)
+        public IEnumerable<OrderDto> GetAll()
+        {
+            var orders = _orderRepository.GetAll().ToList();
+            return orders.Select(o => {
+                o.Car = _carRepository.GetById(o.CarId);
+                o.User = _userRepository.GetById(o.UserId);
+                return MapToDetailedDto(o);
+            }).ToList();
+        }
+
+        // 3. וודאי שהפונקציה הזו היא PUBLIC בתוך ה-OrderService.cs
+        public OrderDto MapToDetailedDto(Order order)
+        {
+            var dto = _mapper.Map<OrderDto>(order);
+            dto.PriceBreakdown = new List<PriceBreakdownLine>();
+
+            // בדיקת הגנה למקרה שהישויות לא נטענו
+            if (order.Car == null) order.Car = _carRepository.GetById(order.CarId);
+            if (order.User == null) order.User = _userRepository.GetById(order.UserId);
+
+            // 1. עלות בסיס
+            dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "עלות השכרה בסיסית", Amount = order.BasePrice });
+
+            // 2. קילומטראז'
+            decimal pricePerKm = order.Car?.PricePerKm ?? 1.5m;
+            decimal distCost = (decimal)((order.DistanceDrivenKm ?? 0) * (double)pricePerKm);
+            if (distCost > 0)
+                dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = $"מרחק נסיעה ({order.DistanceDrivenKm} ק\"מ)", Amount = distCost });
+
+            // 3. תוספת נהג חדש
+            if (order.User != null && order.User.IsNewDriver)
+                dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "תוספת נהג חדש (ביטוח)", Amount = 50 });
+
+            // 4. קנס איחור
+            if (order.LateFee > 0)
+                dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "דמי איחור בהחזרה", Amount = order.LateFee });
+
+            // 5. בונוס תדלוק (זיכוי)
+            if (order.DidCustomerRefuel)
+                dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "בונוס מילוי דלק", Amount = 30, IsDiscount = true });
+
+            // 6. הנחת פיצוי / קופון (זיכוי)
+            if (order.DiscountAmount > 0)
+                dto.PriceBreakdown.Add(new PriceBreakdownLine { Label = "הטבת פיצוי / הנחה", Amount = order.DiscountAmount, IsDiscount = true });
+
+            // 7. חישוב היתרה/חוב (ההפרש)
+            decimal subTotal = dto.PriceBreakdown.Sum(x => x.IsDiscount ? -x.Amount : x.Amount);
+
+            if (subTotal > order.TotalPrice)
+            {
+                dto.PriceBreakdown.Add(new PriceBreakdownLine
+                {
+                    Label = "שולם באמצעות יתרה צבורה",
+                    Amount = subTotal - order.TotalPrice,
+                    IsDiscount = true
+                });
+            }
+            else if (subTotal < order.TotalPrice && order.Status == OrderStatus.Completed)
+            {
+                dto.PriceBreakdown.Add(new PriceBreakdownLine
+                {
+                    Label = "חוב קודם / קנס (לכלוך/דיווח)",
+                    Amount = order.TotalPrice - subTotal,
+                    IsDiscount = false
+                });
+            }
+
+            return dto;
         }
     }
     }
