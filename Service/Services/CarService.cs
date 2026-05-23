@@ -1938,6 +1938,66 @@ namespace Service.Services
                 IsLate = currentOrder != null && now > currentOrder.ExpectedEndTime // האם הנהג מאחר
             };
         }
+        // public CarStatus GetDetailedAvailabilityStatus(int carId, DateTime requestedStart, DateTime requestedEnd, out DateTime? conflictStart, out DateTime? conflictEnd)
+        // {
+        //     conflictStart = null;
+        //     conflictEnd = null;
+        //     int buffer = 15; // באפר קבוע של המערכת
+
+        //     var car = _carRepository.GetById(carId);
+        //     if (car == null || car.NeedsMaintenance || car.FuelLevel < 15)
+        //         return CarStatus.Maintenance;
+
+        //     //הוספתי עכשיו 
+        ////     var activeOrder = _orderRepository.GetAll()
+        ////.FirstOrDefault(o => o.CarId == carId && o.Status == OrderStatus.Active);
+
+        ////     if (activeOrder != null)
+        ////     {
+        ////         // אם מישהו בתוך הרכב, והמשתמש החדש רוצה להזמין לזמן שחופף ל"עכשיו"
+        ////         // אנחנו נחשיב את הרכב כתפוס לפחות עד עכשיו + באפר
+        ////         DateTime currentPhysicallyOccupiedUntil = (activeOrder.ExpectedEndTime > DateTime.Now
+        ////             ? activeOrder.ExpectedEndTime
+        ////             : DateTime.Now).AddMinutes(buffer);
+
+        ////         if (requestedStart < currentPhysicallyOccupiedUntil)
+        ////         {
+        ////             conflictStart = activeOrder.StartTime;
+        ////             conflictEnd = currentPhysicallyOccupiedUntil;
+        ////             return CarStatus.Occupied; // תפוס פיזית!
+        ////         }
+        ////     }
+        ////     //עד פה
+
+        //     // 1. שליפת כל ההזמנות שחופפות לזמן המבוקש
+        //     var overlaps = _orderRepository.GetAll()
+        //         .Where(o => o.CarId == carId &&
+        //                     o.Status != OrderStatus.Canceled &&
+        //                     o.Status != OrderStatus.Completed &&
+        //                     o.StartTime < requestedEnd &&
+        //                     o.ExpectedEndTime.AddMinutes(buffer) > requestedStart)
+        //         .OrderBy(o => o.StartTime)
+        //         .ToList();
+
+        //     // פנוי לגמרי (0)
+        //     if (!overlaps.Any())
+        //         return CarStatus.Available;
+
+        //     // הגדרת "אזור אדום" לריאקט (מתי נתפס לראשונה ומתי משתחרר סופית כולל באפר)
+        //     conflictStart = overlaps.First().StartTime;
+        //     conflictEnd = overlaps.Last().ExpectedEndTime.AddMinutes(buffer);
+        //     // 2. לוגיקת פנוי חלקית (1) - לפי החוקים שלך:
+        //     // א. האם יש חלון של לפחות שעה (60 דק') בתחילת הטווח המבוקש?
+        //     bool gapAtStart = (overlaps.First().StartTime - requestedStart).TotalMinutes >= 60;
+        //     // ב. האם יש חלון כלשהו (אפילו 1-5 דקות) בסוף הטווח המבוקש?
+        //     bool gapAtEnd = (requestedEnd - overlaps.Last().ExpectedEndTime.AddMinutes(buffer)).TotalMinutes > 0;
+        //     if (gapAtStart || gapAtEnd)
+        //     {
+        //         return CarStatus.PartiallyBooked;
+        //     }
+        //     // 3. תפוס לגמרי (2) - אם אין שעה לפני ואין דקה אחרי
+        //     return CarStatus.Occupied;
+        // }
         public CarStatus GetDetailedAvailabilityStatus(int carId, DateTime requestedStart, DateTime requestedEnd, out DateTime? conflictStart, out DateTime? conflictEnd)
         {
             conflictStart = null;
@@ -1948,28 +2008,28 @@ namespace Service.Services
             if (car == null || car.NeedsMaintenance || car.FuelLevel < 15)
                 return CarStatus.Maintenance;
 
-            //הוספתי עכשיו 
-       //     var activeOrder = _orderRepository.GetAll()
-       //.FirstOrDefault(o => o.CarId == carId && o.Status == OrderStatus.Active);
+            // --- הבלוק שמתקן את הבאג: בדיקת נסיעה פעילה בשטח ---
+            var activeOrder = _orderRepository.GetAll()
+                .FirstOrDefault(o => o.CarId == carId && o.Status == OrderStatus.Active);
 
-       //     if (activeOrder != null)
-       //     {
-       //         // אם מישהו בתוך הרכב, והמשתמש החדש רוצה להזמין לזמן שחופף ל"עכשיו"
-       //         // אנחנו נחשיב את הרכב כתפוס לפחות עד עכשיו + באפר
-       //         DateTime currentPhysicallyOccupiedUntil = (activeOrder.ExpectedEndTime > DateTime.Now
-       //             ? activeOrder.ExpectedEndTime
-       //             : DateTime.Now).AddMinutes(buffer);
+            if (activeOrder != null)
+            {
+                // החישוב הקריטי: מתי הרכב באמת יתפנה? 
+                // המקסימום בין (זמן הסיום המתוכנן) לבין (עכשיו) + רבע שעה באפר
+                DateTime currentPhysicallyOccupiedUntil = (activeOrder.ExpectedEndTime > DateTime.Now
+                    ? activeOrder.ExpectedEndTime
+                    : DateTime.Now).AddMinutes(buffer);
 
-       //         if (requestedStart < currentPhysicallyOccupiedUntil)
-       //         {
-       //             conflictStart = activeOrder.StartTime;
-       //             conflictEnd = currentPhysicallyOccupiedUntil;
-       //             return CarStatus.Occupied; // תפוס פיזית!
-       //         }
-       //     }
-       //     //עד פה
+                // אם המשתמש החדש מנסה להזמין לפני שהרכב מתפנה פיזית - חסום אותו!
+                if (requestedStart < currentPhysicallyOccupiedUntil)
+                {
+                    conflictStart = activeOrder.StartTime;
+                    conflictEnd = currentPhysicallyOccupiedUntil;
+                    return CarStatus.Occupied; // מחזיר "תפוס" (סטטוס 2)
+                }
+            }
 
-            // 1. שליפת כל ההזמנות שחופפות לזמן המבוקש
+            // 1. שליפת כל ההזמנות העתידיות שחופפות לזמן המבוקש (מה שרשום ביומן)
             var overlaps = _orderRepository.GetAll()
                 .Where(o => o.CarId == carId &&
                             o.Status != OrderStatus.Canceled &&
@@ -1983,19 +2043,20 @@ namespace Service.Services
             if (!overlaps.Any())
                 return CarStatus.Available;
 
-            // הגדרת "אזור אדום" לריאקט (מתי נתפס לראשונה ומתי משתחרר סופית כולל באפר)
+            // הגדרת "אזור אדום" לריאקט
             conflictStart = overlaps.First().StartTime;
             conflictEnd = overlaps.Last().ExpectedEndTime.AddMinutes(buffer);
-            // 2. לוגיקת פנוי חלקית (1) - לפי החוקים שלך:
-            // א. האם יש חלון של לפחות שעה (60 דק') בתחילת הטווח המבוקש?
+
+            // 2. לוגיקת פנוי חלקית (1):
             bool gapAtStart = (overlaps.First().StartTime - requestedStart).TotalMinutes >= 60;
-            // ב. האם יש חלון כלשהו (אפילו 1-5 דקות) בסוף הטווח המבוקש?
             bool gapAtEnd = (requestedEnd - overlaps.Last().ExpectedEndTime.AddMinutes(buffer)).TotalMinutes > 0;
+
             if (gapAtStart || gapAtEnd)
             {
                 return CarStatus.PartiallyBooked;
             }
-            // 3. תפוס לגמרי (2) - אם אין שעה לפני ואין דקה אחרי
+
+            // 3. תפוס לגמרי (2)
             return CarStatus.Occupied;
         }
     }
