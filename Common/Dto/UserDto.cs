@@ -26,7 +26,6 @@ namespace Common.Dto
         public string? LicenseFrontImg { get; set; }
         public string? LicenseBackImg { get; set; }
         public string? SelfieImg { get; set; }
-        // --- שדות אזרח חו"ל ---
         public bool IsForeignCitizen { get; set; }
         public string? PassportNumber { get; set; }
         public string? PassportImg { get; set; }
@@ -36,10 +35,6 @@ namespace Common.Dto
         public bool IsNewDriver { get; set; }
         public DateTime DateOfBirth { get; set; }
         public DateTime? LicenseExpirationDate { get; set; }
-        // בתוך קובץ User.cs ב-Repository.Entities
-
-        // --- פרטי תשלום מוצפנים ---
-        // בתוך קובץ UserDto.cs ב-Common.Dto
         public string? CardNumber { get; set; }
         public string? CardExpiry { get; set; }
         public string? CVV { get; set; }

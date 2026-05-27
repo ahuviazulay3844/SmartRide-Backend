@@ -38,10 +38,10 @@ namespace Common.Dto
         public int Year { get; set; }
         public bool IsPopular { get; set; } 
         public int TotalOrdersCount { get; set; }
-        public double Latitude { get; set; } // קו רוחב      
-        public double Longitude { get; set; }  // קו אורך
+        public double Latitude { get; set; } 
+        public double Longitude { get; set; } 
         public double Distance { get; set; }
-        public bool IsLocked { get; set; } = false; //האם נעול
+        public bool IsLocked { get; set; } = false; 
         public decimal PricePerDay { get; set; } 
         public decimal PricePerKm { get; set; }
         public DateTime? BlockingOrderStart { get; set; }

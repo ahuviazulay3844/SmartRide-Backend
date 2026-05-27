@@ -4,6 +4,7 @@ using DataContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DataContext.Migrations
 {
     [DbContext(typeof(CityCarDb))]
-    partial class CityCarDbModelSnapshot : ModelSnapshot
+    [Migration("20260519073526_SyncFinalOrderFields")]
+    partial class SyncFinalOrderFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -264,9 +267,6 @@ namespace DataContext.Migrations
                     b.Property<string>("ConditionNotes")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ConflictReason")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int?>("CouponId")
                         .HasColumnType("int");
 
@@ -314,9 +314,6 @@ namespace DataContext.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("SuggestedCarFuelLevel")
                         .HasColumnType("int");
 
                     b.Property<string>("SuggestedCarLocation")

@@ -8,8 +8,6 @@ using System.Threading.Tasks;
 
 namespace Repository.Repositories
 {
-
-
     public class RegionRepository : IRepository<Region>
     {
         private readonly IContext context;

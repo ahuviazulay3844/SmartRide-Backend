@@ -23,7 +23,7 @@ namespace Service.Services
         private readonly IConfiguration _configuration;
         private readonly IRepository<User> _userRepository;
         private readonly IEmailService _emailService;
-        private readonly IHttpContextAccessor _httpContextAccessor;//בשביל לדעת מי המשתמש?
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IMapper _mapper;
         private readonly IMemoryCache _cache;
         private readonly EncryptionService _encryptionService;
@@ -39,22 +39,17 @@ namespace Service.Services
         }
         public async Task<UserDto> Add(UserDto item)
         {
-            // 1. בדיקה אם המשתמש כבר קיים במערכת לפי אימייל
             var isEmailTaken = _userRepository.GetAll().Any(u => u.Email == item.Email);
             if (isEmailTaken) return null;
-
-            // 2. מיפוי מה-DTO ל-Entity
+       
             User newUser = _mapper.Map<User>(item);
 
-            // 3. הצפנת נתונים רגישים (Symmetric Encryption)
-            // אנחנו מצפינים את הנתונים לפני השמירה כדי שגם אם מסד הנתונים ייחשף, המידע יהיה מוגן
             if (!string.IsNullOrEmpty(item.LicenseNumber))
                 newUser.LicenseNumber = _encryptionService.Encrypt(item.LicenseNumber);
 
             if (!string.IsNullOrEmpty(item.PassportNumber))
                 newUser.PassportNumber = _encryptionService.Encrypt(item.PassportNumber);
 
-            // הצפנת פרטי כרטיס אשראי שהגיעו מה-Frontend
             if (!string.IsNullOrEmpty(item.CardNumber))
                 newUser.CardNumber = _encryptionService.Encrypt(item.CardNumber);
 
@@ -64,19 +59,15 @@ namespace Service.Services
             if (!string.IsNullOrEmpty(item.CVV))
                 newUser.CVV = _encryptionService.Encrypt(item.CVV);
 
-            // 4. אבטחת סיסמה (Hashing - בלתי ניתן לפענוח)
             string passwordToHash = item.Password ?? "123456";
             newUser.PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordToHash);
 
-            // 5. הגדרות ברירת מחדל למשתמש חדש
             newUser.CreatedAt = DateTime.Now;
             newUser.IsBlocked = false;
             newUser.Rank = UserRank.Regular;
-
-            // 6. שמירה במסד הנתונים
             var savedUser = _userRepository.Add(newUser);
 
-            // 7. שליחת מייל ברוך הבא (תהליך אסינכרוני "שגר ושכח" כדי לא לעכב את ה-UI)
+           
             if (savedUser != null)
             {
                 _ = Task.Run(async () =>
@@ -87,13 +78,10 @@ namespace Service.Services
                     }
                     catch (Exception ex)
                     {
-                        // לוג שגיאה בלבד, לא עוצר את תהליך הרישום
                         Console.WriteLine($"Welcome email failed: {ex.Message}");
                     }
                 });
             }
-
-            // 8. החזרת המשתמש השמור כ-DTO
             return _mapper.Map<UserDto>(savedUser);
         }
         public bool Delete(int id)
@@ -119,6 +107,14 @@ namespace Service.Services
             var dto= _mapper.Map<UserDto>(user);
             dto.LicenseNumber = _encryptionService.Decrypt(dto.LicenseNumber);
             dto.PassportNumber = _encryptionService.Decrypt(dto.PassportNumber);
+            if (!string.IsNullOrEmpty(dto.CardNumber))
+                dto.CardNumber = _encryptionService.Decrypt(dto.CardNumber);
+
+            if (!string.IsNullOrEmpty(dto.CardExpiry))
+                dto.CardExpiry = _encryptionService.Decrypt(dto.CardExpiry);
+
+            if (!string.IsNullOrEmpty(dto.CVV))
+                dto.CVV = _encryptionService.Decrypt(dto.CVV);
             return dto;
         }
 
@@ -133,84 +129,21 @@ namespace Service.Services
             return true;
         }
 
-        //public string Login(LoginDto l) 
-        //{
-        //    UserDto user = Exist(l);
-        //    if (user != null && !user.IsBlocked)
-        //    {
-        //        var token = GenerateToken(user);
-        //        return token;
-        //    }
-        //    return null;
-        //}
-        //public int Login(LoginDto l, out string token)
-        //{
-        //    token = null;
-        //    // 1. בדיקה אם המייל בכלל קיים במערכת
-        //    var userByEmail = GetByEmail(l.Email); // פונקציה שבודקת רק מייל
-        //    if (userByEmail == null)
-        //    {
-        //        return 404; // המייל לא קיים - "שניהם לא נכונים"
-        //    }
-
-        //    // 2. בדיקה אם המשתמש קיים עם הסיסמה (הפונקציה המקורית שלך)
-        //    UserDto user = Exist(l);
-        //    if (user == null)
-        //    {
-        //        return 401; // המייל קיים, אבל הסיסמה לא נכונה - "אחד מהם שגוי"
-        //    }
-
-        //    if (user.IsBlocked) return 403; // חסום
-
-        //    token = GenerateToken(user);
-        //    return 200; // הצלחה
-        //}
-        //public int Login(LoginDto l, out string token)
-        //{
-        //    token = null;
-
-        //    // 1. שולפים את הישות מה-Repository לפי אימייל בלבד
-        //    var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == l.Email);
-        //    if (user == null) return 404;
-
-        //    bool isCorrect = false;
-
-        //    // 2. בדיקה: האם הסיסמה ב-DB היא מוצפנת (Hash)?
-        //    // BCrypt תמיד מתחיל ב-$2
-        //    if (!string.IsNullOrEmpty(user.PasswordHash) && user.PasswordHash.StartsWith("$2"))
-        //    {
-        //        isCorrect = BCrypt.Net.BCrypt.Verify(l.Pass, user.PasswordHash);
-        //    }
-        //    else
-        //    {
-        //        isCorrect = (user.PasswordHash == l.Pass);
-        //    }
-
-        //    if (!isCorrect) return 401; // סיסמה שגויה
-        //    if (user.IsBlocked) return 403;
-
-        //    // 4. הצלחה - מייצרים טוקן
-        //    token = GenerateToken(_mapper.Map<UserDto>(user));
-        //    return 200;
-        //}
+    
         public int Login(LoginDto l, out string token)
         {
             token = null;
 
-            // 1. שליפת המשתמש לפי אימייל
             var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == l.Email);
             if (user == null) return 404;
 
-            // 2. בדיקת סיסמה מוצפנת באמצעות BCrypt
-            // הפונקציה Verify לוקחת את l.Pass הפשוט ובודקת אותו מול ה-Hash ב-DB
             bool isCorrect = !string.IsNullOrEmpty(user.PasswordHash) &&
                              BCrypt.Net.BCrypt.Verify(l.Pass, user.PasswordHash);
 
-            if (!isCorrect) return 401; // סיסמה שגויה
+            if (!isCorrect) return 401; 
 
-            if (user.IsBlocked) return 403; // משתמש חסום
+            if (user.IsBlocked) return 403;
 
-            // 3. הצלחה - יצירת טוקן
             token = GenerateToken(_mapper.Map<UserDto>(user));
             return 200;
         }
@@ -233,36 +166,6 @@ namespace Service.Services
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        //public UserDto Exist(LoginDto l)
-        //{
-        //    var user = _userRepository.GetAll()
-        //                   .FirstOrDefault(u => u.Email == l.Email && u.PasswordHash == l.Pass);
-        //    if (user == null) return null;
-        //    return _mapper.Map<UserDto>(user);
-        //}
-
-        //public UserDto Exist(LoginDto l)
-        //{
-        //    // שולפים את המשתמש לפי האימייל בלבד
-        //    var user = _userRepository.GetAll()
-        //                           .FirstOrDefault(u => u.Email == l.Email);
-
-        //    // משתמשים ב-Verify כדי לבדוק אם הסיסמה שהוקלדה מתאימה ל-Hash המוצפן
-        //    if (user == null || !BCrypt.Net.BCrypt.Verify(l.Pass, user.PasswordHash))
-        //        return null;
-
-        //    return _mapper.Map<UserDto>(user);
-        //}
-        //public UserDto Exist(LoginDto l)
-        //{
-        //    var userEntity = _userRepository.GetAll().FirstOrDefault(u => u.Email == l.Email);
-        //    if (userEntity != null && BCrypt.Net.BCrypt.Verify(l.Pass, userEntity.PasswordHash))
-        //    {
-        //        return _mapper.Map<UserDto>(userEntity);
-        //    }
-
-        //    return null;
-        //}
         public UserDto GetByEmail(string email)
         {
             var user=_userRepository.GetAll()
@@ -270,31 +173,110 @@ namespace Service.Services
             if (user == null) return null;
             return _mapper.Map<UserDto>(user);
         }
+        public async Task<bool> RequestPasswordReset(string email)
+        {
+            var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == email);
+            if (user == null || user.IsBlocked) return false;
 
+            string resetCode = new Random().Next(100000, 999999).ToString();
+
+            user.PasswordResetCode = resetCode;
+            user.ResetCodeExpiration = DateTime.Now.AddMinutes(5);
+
+            _userRepository.Update(user.Id, user);
+
+            try
+            {
+                await _emailService.SendPasswordResetAsync(user.Email, resetCode);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to send reset email: {ex.Message}");
+                return false;
+            }
+        }
+
+        //public bool ChangePassword(int userId, string oldPassword, string newPassword)
+        //{
+        //    var user = _userRepository.GetById(userId);
+        //    var currentUserIdClaim = _httpContextAccessor.HttpContext?.User
+        //        .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        //    if (currentUserIdClaim == null) return false;
+
+        //    int currentUserId = int.Parse(currentUserIdClaim);
+
+        //    if (currentUserId != userId)
+        //    {
+        //        return false;
+        //    }
+        //    bool isOldPasswordValid = BCrypt.Net.BCrypt.Verify(oldPassword, user.PasswordHash);
+
+        //    if (user == null || !isOldPasswordValid || user.IsBlocked)
+        //    {
+        //        return false; // הסיסמה הישנה לא נכונה
+        //    }
+
+        //    // 2. שינוי בעדכון: הפיכת הסיסמה החדשה ל-Hash לפני שמירה
+        //    // אנחנו לא שומרים את ה-newPassword כמו שהיא, אלא את ה-Hash שלה
+        //    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        //    //var user = _userRepository.GetById(userId);
+
+        //    //if (user == null || user.PasswordHash != oldPassword || user.IsBlocked)
+        //    //{
+        //    //    return false;
+        //    //}
+
+        //    //user.PasswordHash = newPassword;
+        //    _userRepository.Update(userId, user);
+
+        //    return true;
+        //}
         public bool ChangePassword(int userId, string oldPassword, string newPassword)
         {
+            var user = _userRepository.GetById(userId);
+
+            if (user == null || user.IsBlocked) return false;
+
             var currentUserIdClaim = _httpContextAccessor.HttpContext?.User
                 .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             if (currentUserIdClaim == null) return false;
-
             int currentUserId = int.Parse(currentUserIdClaim);
 
-            if (currentUserId != userId)
+            if (currentUserId != userId) return false;
+
+            bool isOldPasswordValid = BCrypt.Net.BCrypt.Verify(oldPassword, user.PasswordHash);
+
+            if (!isOldPasswordValid)
             {
-                return false;
+                return false; 
             }
-
-            var user = _userRepository.GetById(userId);
-
-            if (user == null || user.PasswordHash != oldPassword || user.IsBlocked)
-            {
-                return false;
-            }
-
-            user.PasswordHash = newPassword;
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             _userRepository.Update(userId, user);
 
+            return true;
+        }
+        public bool ResetPassword(string email, string code, string newPassword)
+        {
+            
+            string normalizedEmail = email.Trim().ToLower();
+
+            var user = _userRepository.GetAll().FirstOrDefault(u => u.Email.ToLower() == normalizedEmail);
+
+            if (user == null || user.IsBlocked ||
+                user.PasswordResetCode != code ||
+                user.ResetCodeExpiration < DateTime.Now)
+            {
+                return false;
+            }    
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+            user.PasswordResetCode = null;
+            user.ResetCodeExpiration = null;
+
+            _userRepository.Update(user.Id, user);
             return true;
         }
         public bool ToggleBlockUser(int userId)
@@ -324,48 +306,9 @@ namespace Service.Services
         {
             return _userRepository.GetAll().Count();
         }
-        // בקשת איפוס סיסמה: יצירת קוד, שמירתו במסד ושליחת מייל למשתמש
-        public async Task<bool> RequestPasswordReset(string email)
-        {
-            var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == email);
-            if (user == null || user.IsBlocked) return false;
 
-            // יצירת קוד בן 6 ספרות
-            string resetCode = new Random().Next(100000, 999999).ToString();
 
-            user.PasswordResetCode = resetCode;
-            user.ResetCodeExpiration = DateTime.Now.AddMinutes(5);
-
-            _userRepository.Update(user.Id, user);
-
-            try
-            {
-                // שליחת המייל עם הקוד
-                await _emailService.SendPasswordResetAsync(user.Email, resetCode);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to send reset email: {ex.Message}");
-                return false;
-            }
-        }
-        // איפוס סיסמה: בדיקת הקוד, עדכון הסיסמה ומחיקת הקוד
-        public bool ResetPassword(string email, string code, string newPassword)
-        {
-            var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == email);
-            if (user == null ||
-                user.PasswordResetCode != code ||
-                user.ResetCodeExpiration < DateTime.Now)
-            {
-                return false;
-            }
-            user.PasswordHash = newPassword;
-            user.PasswordResetCode = null;
-            user.ResetCodeExpiration = null;
-            _userRepository.Update(user.Id, user);
-            return true;
-        }
+        //Verify that the new user is real (by sending a code to their email)
         public async Task<bool> RequestRegistrationCode(string email)
         {
             email = email.Trim().ToLower();
@@ -389,7 +332,6 @@ namespace Service.Services
 
             string normalizedEmail = email.Trim().ToLower();
 
-            // בדיקה: האם המפתח קיים בכלל?
             if (_cache.TryGetValue(normalizedEmail, out string savedCode))
             {
                 string cleanCode = code.Trim();
@@ -411,7 +353,6 @@ namespace Service.Services
             var user = _userRepository.GetAll().FirstOrDefault(u => u.Email == l.Email);
             return user != null && BCrypt.Net.BCrypt.Verify(l.Pass, user.PasswordHash);
         }
-        // בתוך UserService.cs
         public UserDto Exist(LoginDto l)
         {
             // שליפת המשתמש לפי אימייל

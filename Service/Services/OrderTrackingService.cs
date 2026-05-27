@@ -36,13 +36,13 @@ namespace Service.Services
 
             foreach (var order in toActivate)
             {
-                // 1. האם יש משתמש קודם שעדיין לא סיים?
+              
                 bool isCarBlockedByLateUser = _orderService.GetAll()
                     .Any(o => o.CarId == order.CarId &&
                               o.Status == OrderStatus.Active &&
                               o.Id != order.Id);
 
-                // 2. האם הרכב בסטטוס שמונע נסיעה (למשל בטיפול)?
+             
                 var car = _carService.GetById(order.CarId);
                 bool isCarInMaintenance = car?.Status == CarStatus.Maintenance;
 
@@ -57,7 +57,7 @@ namespace Service.Services
                     continue;
                 }
 
-                // 3. הכל תקין - מפעילים את הנסיעה
+   
                 await _orderService.UpdateStatusAsync(order.Id, OrderStatus.Active);
 
                 if (car != null)
@@ -71,7 +71,7 @@ namespace Service.Services
         }
         private async Task UpdateActiveTripsProgress()
         {
-            // חשוב: לוודא ש-GetAll() מחזיר נתונים עדכניים מה-DB ולא מה-Cache
+          
             var activeOrders = _orderService.GetAll()
                 .Where(o => o.Status == OrderStatus.Active)
                 .ToList();
@@ -82,7 +82,7 @@ namespace Service.Services
             {
                 try
                 {
-                    // נשמור את ה-KM שהיה לפני העדכון כדי לדעת אם באמת היה שינוי
+                   
                     int kmAdded =await _orderService.UpdateTripProgress(order.Id);
 
                     if (kmAdded > 0)
@@ -96,20 +96,7 @@ namespace Service.Services
                 }
             }
         }
-
-        private async Task AutoFinishExpiredOrders(DateTime now)
-        {
-            var overdue = _orderService.GetAll()
-                .Where(o => o.Status == OrderStatus.Active && o.ExpectedEndTime < now)
-                .ToList();
-
-            foreach (var order in overdue)
-            {
-                // כאן אתה יכול להוסיף שליחת מייל התראה: "אתה באיחור!"
-                // אל תריץ FinishOrder()! ככה ההזמנה נשארת פעילה והמשתמש רואה שהזמן עבר.
-                Console.WriteLine($"[Worker] Order {order.Id} is late. Alarm activated in UI.");
-            }
-        }
+     
         private async Task HandleBufferingAndConflicts(DateTime now)
         {
             var allOrders = _orderService.GetAll().ToList();
@@ -123,7 +110,7 @@ namespace Service.Services
                 var waitingOrder = allOrders
                     .FirstOrDefault(o => o.CarId == lateOrder.CarId &&
                                          o.Status == OrderStatus.Pending &&
-                                         !o.HasConflict && // --- חשוב: אל תחפש אם כבר הצענו החלפה! ---
+                                         !o.HasConflict && 
                                          !o.IsReassigned);
 
                 if (waitingOrder != null)
@@ -132,31 +119,19 @@ namespace Service.Services
                 }
             }
         }
-        //private async Task HandleBufferingAndConflicts(DateTime now)
-        //{
-        //    var allOrders = _orderService.GetAll().ToList();
+        private async Task AutoFinishExpiredOrders(DateTime now)
+        {
+            var overdue = _orderService.GetAll()
+                .Where(o => o.Status == OrderStatus.Active && o.ExpectedEndTime < now)
+                .ToList();
 
-        //    // 1. מי המאחרים (User A)?
-        //    var lateOrders = allOrders
-        //        .Where(o => o.Status == OrderStatus.Active && o.EndTime == null && o.ExpectedEndTime < now)
-        //        .ToList();
-
-        //    foreach (var lateOrder in lateOrders)
-        //    {
-        //        // 2. מי מחכה לרכב הספציפי הזה (User B)?
-        //        // תנאי: רק אם הוא Pending ועוד לא קיבל הצעה (HasConflict == false)
-        //        var waitingOrder = allOrders
-        //            .FirstOrDefault(o => o.CarId == lateOrder.CarId &&
-        //                                 o.Status == OrderStatus.Pending &&
-        //                                 !o.HasConflict);
-
-        //        if (waitingOrder != null)
-        //        {
-        //            // מפעילים את הקונפליקט על waitingOrder
-        //            await _orderService.ProcessLateCustomerConflict(lateOrder.CarId);
-        //        }
-        //    }
-        //}
+            foreach (var order in overdue)
+            {
+                // כאן אתה יכול להוסיף שליחת מייל התראה: "אתה באיחור!"
+                // אל תריץ FinishOrder()! ככה ההזמנה נשארת פעילה והמשתמש רואה שהזמן עבר.
+                Console.WriteLine($"[Worker] Order {order.Id} is late. Alarm activated in UI.");
+            }
+        }
 
     }
         }

@@ -14,23 +14,22 @@ namespace Repository.Entities
         public int Id { get; set; }
 
         [Required]
-        public bool IsCleanInside { get; set; } // האם נקי בפנים?
+        public bool IsCleanInside { get; set; } 
 
         [Required]
-        public bool IsCleanOutside { get; set; } // האם נקי בחוץ?
+        public bool IsCleanOutside { get; set; } 
 
         [Required]
-        public bool IsAicConditionWorking { get; set; } // האם המזגן תקין?
+        public bool IsAicConditionWorking { get; set; } 
 
         [Required]
-        public bool AnyNewDamage { get; set; } // האם זיהית נזק חדש?
-        public bool HasFlatTire { get; set; }//פנצר?
+        public bool AnyNewDamage { get; set; }
+        [Required]
+        public bool HasFlatTire { get; set; }
 
-        public string? DamageDescription { get; set; } // תיאור הנזק (אם יש)
+        public string? DamageDescription { get; set; }
 
         public DateTime InspectionDate { get; set; } = DateTime.Now;
-
-        // --- קישורים לוגיים ---
 
         [Required]
         public int CarId { get; set; }

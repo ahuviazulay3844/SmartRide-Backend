@@ -10,11 +10,11 @@ namespace Service.Interfaces
     public interface IEmailService
     {
         Task SendEmailAsync(string toEmail, string subject, string htmlMessage);
-        Task SendOrderConfirmationAsync(string userEmail, int orderId, string carModel);  // שליחת אישור הזמנה עם קישור לשאלון מצב הרכב
-        Task SendFinalReceiptAsync(string userEmail, OrderDto orderDetails);        // שליחת קבלה מפורטת בסיום הנסיעה
-        Task SendPasswordResetAsync(string userEmail, string resetCode);// שליחת קוד לאיפוס סיסמה
+        Task SendOrderConfirmationAsync(string userEmail, int orderId, string carModel);  
+        Task SendFinalReceiptAsync(string userEmail, OrderDto orderDetails);        
+        Task SendPasswordResetAsync(string userEmail, string resetCode);
         Task SendWelcomeEmailAsync(string userEmail, string userName);
         Task SendFineNotificationAsync(string email, decimal fine, string fineReason);
-        Task SendRegistrationVerificationAsync(string userEmail, string verificationCode);// שליחת קוד אימות בעת הרשמה
+        Task SendRegistrationVerificationAsync(string userEmail, string verificationCode);
     }
 }

@@ -38,9 +38,14 @@ namespace Common.Dto
         // בתוך הקובץ Order.cs
         public bool HasConflict { get; set; } = false;
         public int? SuggestedReplacementCarId { get; set; }
+
         public string? SuggestedCarModel { get; set; }
         public string? SuggestedCarLocation { get; set; }
         public decimal TotalBeforeDiscounts { get; set; }
+        public string? ConflictReason { get; set; }
+        public int? SuggestedCarSeats { get; set; }
+        public int? SuggestedCarFuelLevel { get; set; }
+
 
         public List<PriceBreakdownLine> PriceBreakdown { get; set; } = new List<PriceBreakdownLine>();
 

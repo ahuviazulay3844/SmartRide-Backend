@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 namespace Service.Services
 {
-    // מחלקה לאחסון הגדרות המייל מהקובץ appsettings.json
     public class EmailSettings
     {
             public string SmtpServer { get; set; }

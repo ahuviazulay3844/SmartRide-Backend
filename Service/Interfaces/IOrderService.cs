@@ -15,7 +15,6 @@ namespace Service.Interfaces
         bool IsCarBusy(OrderDto item);
         decimal CalculateOrderPrice(OrderDto order);
         Task<int> UpdateTripProgress(int orderId);
-        //Task<bool> UnlockCar(int orderId);
         bool UnlockCar(int orderId);
         bool LockCar(int orderId);
         Task<bool> ReportStartCondition(int orderId, CarInspectionDto dto);
@@ -31,7 +30,6 @@ namespace Service.Interfaces
         IEnumerable<OrderDto> GetOrdersByUserEmail(string email);
         IEnumerable<OrderDto> GetOrdersByCarNumber(string carNumber);
         IEnumerable<OrderDto> GetOrdersByUserId(int userId);
-        object GetCarAvailabilityInfo(int carId);
         bool IsUserOverlap(int userId, DateTime start, DateTime end);
         Task<bool> ProcessLateCustomerConflict(int carId);
         Task<bool> RequestExtension(int orderId);

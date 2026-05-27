@@ -41,18 +41,6 @@ namespace Repository.Repositories
         {
             return context.Orders.Any(x => x.Id == id);
         }
-
-        //public IEnumerable<Order> GetAll()
-        //{
-        //    return context.Orders.AsQueryable();
-        //}
-
-        //public Order? GetById(int id)
-        //{
-        //    return context.Orders.Find(id);
-        //}
-        // Repository/Repositories/OrderRepository.cs
-
         public IEnumerable<Order> GetAll()
         {
             // נשתמש ב-Include כדי להביא את הנתונים המקושרים
@@ -76,27 +64,10 @@ namespace Repository.Repositories
             }
             return context.Orders.Find(id);
         }
-
-        //public bool Update(int id, Order item)
-        //{
-        //    var existing = context.Orders.Find(id);
-        //    if (existing == null) return false;
-
-        //    if (context is Microsoft.EntityFrameworkCore.DbContext dbContext)
-        //    {
-        //        dbContext.Entry(existing).CurrentValues.SetValues(item);
-        //    }
-
-        //    context.Save();
-        //    return true;
-        //}
         public bool Update(int id, Order item)
         {
             var existing = context.Orders.Find(id);
             if (existing == null) return false;
-
-            // 1. נתק את הישות הקיימת מהמעקב אם היא קיימת (אופציונלי אך בטוח)
-            // 2. השתמש ב-SetValues רק על המאפיינים הפשוטים (Scalars)
             if (context is Microsoft.EntityFrameworkCore.DbContext dbContext)
             {
               

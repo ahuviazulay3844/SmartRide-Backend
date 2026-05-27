@@ -9,13 +9,10 @@ using Repository.Interfaces;
 namespace DataContext
 {
     public class CityCarDb : DbContext, IContext
-    {
-        // 1. הוספת בנאי שמקבל אפשרויות - קריטי ל-Worker!
+    {  
         public CityCarDb(DbContextOptions<CityCarDb> options) : base(options)
         {
         }
-
-        // 2. בנאי ריק (אופציונלי, למקרה של Migration או שימוש ידני)
         public CityCarDb() { }
 
         public DbSet<User> Users { get; set; }
@@ -34,7 +31,6 @@ namespace DataContext
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            // אם לא הוגדרו אפשרויות מבחוץ (כמו ב-Worker), נשתמש בברירת המחדל
             if (!optionsBuilder.IsConfigured)
             {
                 optionsBuilder.UseSqlServer("server=DESKTOP-1VUANBN;database=CityCarDB;trusted_connection=true;TrustServerCertificate=True");
@@ -43,7 +39,6 @@ namespace DataContext
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // תיקון שגיאת ה-Cascade בטבלת הבדיקות
             modelBuilder.Entity<CarInspection>()
                 .HasOne(i => i.Order)
                 .WithMany()
@@ -62,7 +57,6 @@ namespace DataContext
                 .HasForeignKey(i => i.CarId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // תיקון אזהרות ה-Decimal (כדי שלא יהיו חיתוכי מספרים)
             modelBuilder.Entity<Car>().Property(c => c.PricePerHour).HasPrecision(18, 2);
             modelBuilder.Entity<Car>().Property(c => c.PricePerDay).HasPrecision(18, 2);
             modelBuilder.Entity<Car>().Property(c => c.PricePerKm).HasPrecision(18, 2);
@@ -73,7 +67,7 @@ namespace DataContext
             modelBuilder.Entity<Coupon>().Property(cp => cp.MinimumOrderAmount).HasPrecision(18, 2);
             modelBuilder.Entity<User>().Property(u => u.AccountBalance).HasPrecision(18, 2);
 
-            // שאר ההגדרות הקיימות שלך (Feedback וכו')
+          
             modelBuilder.Entity<Order>()
                .HasOne(o => o.Feedback)
                .WithOne(f => f.Order)

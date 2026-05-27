@@ -65,6 +65,7 @@ namespace Repository.Repositories
             carToUpdate.Seats = item.Seats;
             carToUpdate.ImageUrl = item.ImageUrl;
             carToUpdate.LicensePlate = item.LicensePlate;
+            carToUpdate.NeedsMaintenance = item.NeedsMaintenance;
             context.Save();
             return true;
         }

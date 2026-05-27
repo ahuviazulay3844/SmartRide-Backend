@@ -4,77 +4,66 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Repository.Entities
 {
     public enum OrderStatus { Pending = 0, Active = 1, Completed = 2, Canceled = 3 }
-    public enum PricingType { ByHour, ByDay }// סוג תמחור: לפי שעה/ לפי יום
+    public enum PricingType { ByHour, ByDay }
 
     //טבלת הזמנות   
     public class Order
     {
        
         [Key]
-        public int Id { get; set; } //מזהה הזמנה
+        public int Id { get; set; }
 
+        // ---Times (for calculating late payment fines)---
+        public DateTime StartTime { get; set; } 
+        public DateTime ExpectedEndTime { get; set; }   
+        public int TotalDays { get; set; }
+        public int TotalHours { get; set; }
+        public DateTime? EndTime { get; set; } 
+        public DateTime? ActualOpeningTime { get; set; } 
+        public bool IsInspectionSubmitted { get; set; }
 
-        // --- זמנים (לחישוב קנס איחור) ---
-        public DateTime StartTime { get; set; } //זמן התחלה של ההזמנה
-        public DateTime ExpectedEndTime { get; set; } //זמן שצריך להסתיים ההזמנה-לפי מה שהוזמן  
-        public int TotalDays { get; set; }// כמה ימים הוזמן
-        public int TotalHours { get; set; }// כמה שעות הוזמן
-        public DateTime? EndTime { get; set; } //זמן סיום של ההזמנה בפועל  
-        public DateTime? ActualOpeningTime { get; set; } // הזמן בו נלחץ "פתח רכב" לראשונה
-        public bool IsInspectionSubmitted { get; set; } // האם השאלון כבר מולא?
+        // --- Mileage for distance calculation  ---
+        public int StartMileage { get; set; } 
+        public int? EndMileage { get; set; } 
+        public int? DistanceDrivenKm { get; set; } 
 
-        // --- קילומטראז' - לחישוב מרחק  ---
-        public int StartMileage { get; set; } // כמה היה לרכב כשיצא
-        public int? EndMileage { get; set; } // כמה היה לרכב כשחזר
-        public int? DistanceDrivenKm { get; set; } // כמה קילומטרים נסע בפועל
-        // --- מחירים ותשלומים ---
-        public decimal BasePrice { get; set; } // מחיר לפי ימים/שעות
-        public decimal LateFee { get; set; } = 0; // קנס איחור-מחושב
-        public decimal TotalPrice { get; set; } //מחיר סופי של ההזמנה
-        public bool WantsInsuranceUpgrade { get; set; } = false; // ביטול השתתפות עצמית
-        public PricingType PricingType { get; set; } // סוג תמחור: לפי שעה/ לפי יום
+        // --- pricing ---
+        public decimal BasePrice { get; set; } 
+        public decimal LateFee { get; set; } = 0; 
+        public decimal TotalPrice { get; set; } 
+        public bool WantsInsuranceUpgrade { get; set; } = false; 
+        public PricingType PricingType { get; set; }
 
+        // --- Management and status  ---
+        public OrderStatus Status { get; set; } = OrderStatus.Pending;
+        public bool IsPaid { get; set; } = false;
 
-        // --- ניהול וסטטוס ---
-        public OrderStatus Status { get; set; } = OrderStatus.Pending; //מצב הזמנה
-        public bool IsPaid { get; set; } = false; //האם ההזמנה שולמה
+        // --- Conflict ---
+        public bool HasConflict { get; set; } = false;
+        public int? SuggestedCarSeats { get; set; }
+        public int? SuggestedCarFuelLevel { get; set; }
         public string? SuggestedCarModel { get; set; }
         public string? SuggestedCarLocation { get; set; }
-
-        // --- דלק ודיווחים ---
-        public bool DidCustomerRefuel { get; set; } = false; // האם מילא דלק-בשביל הבונוס
-        //public bool ReportedDirty { get; set; } = false; // האם דווח שהחזיר מלוכלך-אם יערער
-        public string? ConditionNotes { get; set; } // יקבל מהמייל- הערות חופשיות על מצב הרכב
-
-        public virtual CarInspection? Inspection { get; set; } // מאפשר גישה לדיווח מתוך ההזמנה
-        public bool IsReassigned { get; set; } = false;
-        public decimal DiscountAmount { get; set; } = 0;
-        // בתוך הקובץ Order.cs
-        public bool HasConflict { get; set; } = false;
         public int? SuggestedReplacementCarId { get; set; }
-      
-        public int? SuggestedCarSeats { get; set; } 
 
-        //קישורים לטבלאות אחרות
+        // --- Fuel and reports ---
+        public bool DidCustomerRefuel { get; set; } = false; 
+        public string? ConditionNotes { get; set; }
+        public string? ConflictReason { get; set; }
+        public virtual CarInspection? Inspection { get; set; } 
+        public bool IsReassigned { get; set; } = false;
+        public decimal DiscountAmount { get; set; } = 0;     
 
 
-        // --- קישור למשתמש ---
-        public int UserId { get; set; } //מזהה משתמש
+
+        public int UserId { get; set; }
         [ForeignKey("UserId")]
         public virtual User User { get; set; }
-
-        // --- קישור לרכב ---
-        public int CarId { get; set; } //מזהה רכב
+        public int CarId { get; set; } 
         [ForeignKey("CarId")]
         public virtual Car Car { get; set; }
-
-        // --- קישור לפידבק - אופציונלי ---
-
         public virtual CarFeedback? Feedback { get; set; }
-
-
-        // --- קישור לקופון - אופציונלי ---
-        public int? CouponId { get; set; } //מזהה קופון
+        public int? CouponId { get; set; } 
         [ForeignKey("CouponId")]
         public virtual Coupon? Coupon { get; set; }
 

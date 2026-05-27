@@ -86,7 +86,6 @@ if (app.Environment.IsDevelopment())
     });
 
 }
-// דוגמה לשימוש בתוך ה-Service במקום DateTime.Now
 var israelTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Israel Standard Time");
 var nowInIsrael = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, israelTimeZone);
 app.UseHttpsRedirection();

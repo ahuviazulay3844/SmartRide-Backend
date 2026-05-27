@@ -139,10 +139,9 @@ namespace Service.Services
             var finalAmount = originalAmount - discount;
             return finalAmount < 0 ? originalAmount : finalAmount;
         }
-        //בצע תשלום
+    
         public bool ConfirmRedemption(int userId, string couponCode, decimal amount)
         {
-            //יעצר פה אם מנסים לקבל בכמה מקומות אותו הנחה
 
             if (!IsCouponValid(couponCode, userId, amount))
             {

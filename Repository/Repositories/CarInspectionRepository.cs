@@ -10,13 +10,11 @@ namespace Repository.Repositories
     {
         private readonly IContext context;
 
-        // הזרקה של הקונטקסט שלך
         public CarInspectionRepository(IContext context)
         {
             this.context = context;
         }
 
-        // המימוש של הוספת הדיווח מהטופס
         public CarInspection Add(CarInspection item)
         {
             context.CarInspections.Add(item);
@@ -24,25 +22,21 @@ namespace Repository.Repositories
             return item;
         }
 
-        // החזרת כל הדיווחים (למקרה שתצטרכי להציג היסטוריה)
         public IEnumerable<CarInspection> GetAll()
         {
             return context.CarInspections.AsQueryable();
         }
 
-        // שליפת דיווח לפי ID
         public CarInspection? GetById(int id)
         {
             return context.CarInspections.Find(id);
         }
 
-        // בדיקה אם דיווח קיים
         public bool Exists(int id)
         {
             return context.CarInspections.Any(x => x.Id == id);
         }
 
-        // עדכון דיווח (בדרך כלל לא בשימוש בטפסים כאלה, אבל חייב מימוש ל-Interface)
         public bool Update(int id, CarInspection item)
         {
             var existing = context.CarInspections.Find(id);
@@ -61,7 +55,6 @@ namespace Repository.Repositories
             return true;
         }
 
-        // מחיקת דיווח
         public bool Delete(int id)
         {
             var item = context.CarInspections.Find(id);

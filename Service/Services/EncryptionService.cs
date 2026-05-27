@@ -2,13 +2,13 @@
 using System.Security.Cryptography;
 using System.Text;
 
+//AES(Advanced Encryption
 public class EncryptionService
 {
-    private readonly string _key; // מפתח סודי באורך 32 תווים
+    private readonly string _key; // -character secret key
 
     public EncryptionService(IConfiguration configuration)
     {
-        // נשלוף את המפתח מהגדרות האפליקציה
         _key = configuration["EncryptionKey"] ?? "12345678901234567890123456789012";
     }
 
@@ -18,7 +18,7 @@ public class EncryptionService
 
         using Aes aes = Aes.Create();
         aes.Key = Encoding.UTF8.GetBytes(_key);
-        aes.IV = new byte[16]; // וקטור אתחול קבוע לצורך הפשטות (במערכות רגישות מאוד משתמשים ב-IV דינמי)
+        aes.IV = new byte[16]; 
 
         using var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
         byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);

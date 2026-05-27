@@ -11,7 +11,6 @@ namespace Service.Interfaces
     public interface IUserService: IService<UserDto>
     {
         int Login(LoginDto l, out string token);
-        //string Login(LoginDto loginDto);
         UserDto GetByEmail(string email);
         bool ChangePassword(int userId, string oldPassword, string newPassword);
         bool ToggleBlockUser(int userId);

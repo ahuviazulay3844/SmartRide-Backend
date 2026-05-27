@@ -11,68 +11,63 @@ using System.Threading.Tasks;
 namespace Repository.Entities
 {
 
-    //(מצב רכב (זמין, חלקית, תפוס
     public enum CarStatus { Available = 0, PartiallyBooked = 1, Occupied = 2, Maintenance = 3 }
     public enum CarCategory { Mini, Family, Large, Commercial, Luxury }
-    //טבלת רכבים
+
     public class Car
 {
-        // --- מזהים ומידע בסיסי ---
+        // ---Identifiers and basic information ---
         [Key]
-        public int Id { get; set; } //מזהה רכב   
+        public int Id { get; set; } 
         [Required]
-        public string Model { get; set; } //דגם רכב
+        public string Model { get; set; } 
         [Required]
-        public string LicensePlate { get; set; }//מס רישוי
-        public string ? ImageUrl { get; set; } //תמונת רכב
-        public int Seats { get; set; }//מס מקומות ברכב
+        public string LicensePlate { get; set; }
+        public string ? ImageUrl { get; set; } 
+        public int Seats { get; set; }
         public int Year { get; set; }
 
 
-    // ---(מצב תפעולי (סטטוס ---
+    // ---Operational (status) ---
         public CarCategory CarCategory { get; set; }
-        public CarStatus Status { get; set; } // פנוי/תפוס/מוזמן
-        public bool IsLocked { get; set; }= false; //האם נעול
-        public DateTime? LastLockTime { get; set; } // זמן נעילה אחרון בפועל
-        public bool NeedsMaintenance { get; set; } = false; // האם הרכב דורש תחזוקה/ניקיון?
-        public string? MaintenanceNotes { get; set; } // פירוט התקלה הנוכחית
-        public int FuelLevel { get; set; } // רמת דלק נוכחית באחוזים
-        public int Kilometers { get; set; } // קילומטרז נוכחי
+        public CarStatus Status { get; set; } 
+        public bool IsLocked { get; set; }= false; 
+        public DateTime? LastLockTime { get; set; }
+        public bool NeedsMaintenance { get; set; } = false; 
+        public string? MaintenanceNotes { get; set; } 
+        public int FuelLevel { get; set; } 
+        public int Kilometers { get; set; } 
 
 
-        // --- מחירון ---
+        // --- Pricing ---
 
-        public decimal  PricePerHour { get; set; } //מחיר לשעה
-        public decimal  PricePerDay { get; set; } //מחיר ליום
-        public decimal  PricePerKm { get; set; } //מחיר לקילומטר
+        public decimal  PricePerHour { get; set; }
+        public decimal  PricePerDay { get; set; } 
+        public decimal  PricePerKm { get; set; }
 
 
-        //מיקום רכב
-
+        // --- Location ---
 
         [Required]
-        public string StartParking { get; set; } //חנית התחלה
-        public double Latitude { get; set; } // קו רוחב      
-        public double Longitude { get; set; }  // קו אורך
+        public string StartParking { get; set; } 
+        public double Latitude { get; set; }
+        public double Longitude { get; set; } 
 
 
-        // --- סטטיסטיקה ושיווק  ---
-        public int TotalOrdersCount { get; set; } = 0; // כמה פעמים הרכב הוזמן בסך הכל
-        public bool IsPopular => TotalOrdersCount > 3; // משתנה שמחשב: אם הוזמן מעל 50 פעמים הוא  פופולרי  
+        // --- Statistics and Marketing ---
+        public int TotalOrdersCount { get; set; } = 0; 
+        public bool IsPopular => TotalOrdersCount > 20;  
 
 
-        //----- קישורים לטבלאות אחרות -----
 
 
-        // --- קישור לאזור  ---
-        public int RegionId { get; set; }//מזהה אזור
+        public int RegionId { get; set; }
         [ForeignKey("RegionId")]
-        public virtual Region Region { get; set; } // קישור לטבלת אזורים
+        public virtual Region Region { get; set; } 
 
-        // --- קשרים ורשימות ---
-        public virtual ICollection<CarFeedback> Feedbacks { get; set; } = new List<CarFeedback>();//רשימת פידבקים על הרכב זה
+        public virtual ICollection<CarFeedback> Feedbacks { get; set; } = new List<CarFeedback>();
 
-        public virtual ICollection<Order> Orders { get; set; } = new List<Order>(); // קישור  לרשימת ההזמנות של הרכב הזה
+        public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
 
     }
 }

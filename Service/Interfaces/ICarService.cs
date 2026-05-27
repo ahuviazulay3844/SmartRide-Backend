@@ -1,4 +1,5 @@
 ﻿using Common.Dto;
+using Repository.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +9,7 @@ namespace Service.Interfaces
 {
     public interface ICarService: IService<CarDto>
     {
-        //IEnumerable<CarDto> GetAllClosest(double userLat, double userLon, DateTime? start = null, DateTime? end = null);
+        
         bool SendToMaintenance(int carId);
         bool ReleaseFromMaintenance(int carId);
         IEnumerable<CarDto> GetVehiclesNeedingFuel();
@@ -23,7 +24,7 @@ namespace Service.Interfaces
         IEnumerable<CarDto> GetByStatus(string status);
         object GetCarAvailabilityInfo(int id);
         bool UpdateLockStatus(int carId, bool isLocked);
-        CarStatus GetDetailedAvailabilityStatus(int carId, DateTime requestedStart, DateTime requestedEnd, out DateTime? conflictStart, out DateTime? conflictEnd);
+        Common.Dto.CarStatus GetDetailedAvailabilityStatus(Car car, DateTime requestedStart, DateTime requestedEnd, List<Order> allOrders, out DateTime? conflictStart, out DateTime? conflictEnd);
         IEnumerable<CarDto> GetAllClosest(double userLat, double userLon, DateTime? start = null, DateTime? end = null);
     }
 }
