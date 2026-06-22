@@ -1,35 +1,66 @@
 # CityCar — מערכת השכרת רכבים
 
-מערכת Backend מלאה לניהול שירות השכרת רכבים עירוני (מודל דומה ל-Car2Go / Gett Car).  
-הפרויקט בנוי ב-.NET 9, ASP.NET Core Web API, Entity Framework Core ו-SQL Server, עם הפרדה לשכבות (Layered Architecture), אימות JWT, ועובד רקע (Background Worker) לניהול מחזור חיי ההזמנות.
+מערכת API לניהול שירות השכרת רכבים עירוני, מבוססת .NET 9 ו-ASP.NET Core.  
+הפרויקט מדמה שירות השכרה לפי דקה/שעה (Car2Go / Gett Car): משתמש מזמין רכב קרוב, פותח אותו מהאפליקציה, נוסע, מדווח מצב ומסיים — והמערכת מחשבת מחיר, מנהלת קונפליקטים ומעדכנת את הצי ברקע.
 
 ---
 
 ## מהות הפרויקט
 
-CityCar מאפשרת:
+**למשתמשים (`user`):** הרשמה עם אימות מייל, התחברות, הזמנת רכב לפי מיקום וזמינות, פתיחה/נעילה, בדיקת מצב לפני נסיעה, מעקב קילומטראז', תדלוק, סיום, משוב, קופונים והארכת הזמנה.
 
-- **למשתמשים (`user`)** — הרשמה, התחברות, הזמנת רכב לפי מיקום וזמינות, פתיחה/נעילה של רכב, דיווח מצב לפני נסיעה, מעקב נסיעה, סיום הזמנה, משוב, שימוש בקופונים והארכת הזמנה.
-- **למנהלים (`admin`)** — ניהול מלא של משתמשים, רכבים, אזורים, קופונים, דוחות הכנסות והזמנות, תחזוקת צי וחסימת משתמשים.
+**למנהלים (`admin`):** CRUD מלא על משתמשים, רכבים, אזורים וקופונים; דוחות הכנסות והזמנות; תחזוקת צי; חסימת משתמשים.
 
-המערכת מטפלת בתרחישים עסקיים מורכבים: חפיפת הזמנות, איחור בהחזרת רכב, הצעת רכב חלופי, חישוב מחיר דינמי, דירוג משתמשים, הגבלת הזמנות בשבת, וסימולציית נסיעה ברקע.
+**תרחישים מורכבים שהמערכת מטפלת בהם:** חפיפת הזמנות (משתמש ורכב), איחור בהחזרה, הצעת רכב חלופי, בuffer הכנה בין נסיעות, חישוב מחיר דינמי, דירוג והנחות, הגבלת שבת, הצפנת נתונים רגישים, וסימולציית נסיעה ב-Worker.
+
+---
+
+## ארכיטקטורה
+
+הפרויקט בנוי ב-**Layered Architecture** — כל שכבה אחראית על תחום אחד, והתקשורת זורמת מלמעלה למטה:
+
+| # | שכבה | אחריות |
+|---|------|--------|
+| 1 | `Project` | קבלת בקשות HTTP, Middleware, JWT, CORS, Swagger |
+| 2 | `Service` | לוגיקה עסקית — אימותים, חישובים, תהליכים |
+| 3 | `Repository` | גישה לנתונים — CRUD על DbSet |
+| 4 | `DataContext` | DbContext, יחסי ישויות, מיגרציות |
+| 5 | `Common` | DTOs — הפרדה בין API לישויות DB |
+
+```
+Client (Frontend / Swagger)
+        │
+        ▼
+   Project (API) ──► Controllers דקים
+        │
+        ▼
+   Service ──► UserService, CarService, OrderService ...
+        │
+        ▼
+   Repository ──► IRepository<T>
+        │
+        ▼
+   DataContext (CityCarDb) ──► SQL Server
+
+CityCar.Worker ──► OrderTrackingService (ללא HTTP, כל 60 שנ')
+```
+
+**עקרון מרכזי:** Controller מקבל DTO, קורא ל-Service, ומחזיר תשובת HTTP. Entities לא יוצאות החוצה — AutoMapper ממיר בין Entity ל-DTO.
 
 ---
 
 ## טכנולוגיות
 
-| טכנולוגיה | שימוש |
-|-----------|--------|
-| ASP.NET Core Web API (.NET 9) | שכבת API |
-| Entity Framework Core 9 | ORM ומיגרציות |
-| SQL Server | מסד נתונים |
-| JWT Bearer Authentication | אימות והרשאות |
-| Swagger / OpenAPI | תיעוד ו-UI לבדיקות |
-| AutoMapper | מיפוי Entity ↔ DTO |
-| BCrypt | הצפנת סיסמאות |
-| AES (`EncryptionService`) | הצפנת פרטי אשראי |
-| SMTP (Gmail) | שליחת מיילים (אישור הזמנה, איפוס סיסמה, קוד הרשמה) |
-| `BackgroundService` | עובד רקע לעדכון סטטוס הזמנות |
+- ASP.NET Core Web API (.NET 9)
+- Entity Framework Core 9 + SQL Server
+- JWT Bearer Authentication
+- Swagger / OpenAPI
+- AutoMapper
+- BCrypt (סיסמאות)
+- AES — `EncryptionService` (רישיון, דרכון, אשראי)
+- SMTP / Gmail — `EmailService`
+- `MemoryCache` — קודי הרשמה ואיפוס סיסמה
+- `BackgroundService` — `CityCar.Worker`
 
 ---
 
@@ -37,277 +68,214 @@ CityCar מאפשרת:
 
 ```
 CityCar-Project/
-├── Project/          ← Web API (נקודת הכניסה)
+├── Project/          ← Web API (נקודת כניסה)
 ├── Service/          ← לוגיקה עסקית
-├── Repository/       ← גישה לנתונים + ישויות (Entities)
-├── DataContext/      ← DbContext, מיגרציות EF
+├── Repository/       ← Repositories + Entities
+├── DataContext/      ← DbContext + Migrations
 ├── Common/           ← DTOs
 └── Project.sln
 
-CityCar.Worker/       ← פרויקט עובד רקע (תיקייה אחות, מחוץ ל-repo)
-└── CityCar.Worker/
+CityCar.Worker/       ← עובד רקע (תיקייה אחות, מחוץ ל-repo)
 ```
 
-| פרויקט | תלות | תפקיד |
-|--------|------|--------|
-| `Project` | Service, Repository, DataContext, Common, CityCar.Worker | Controllers, Middleware, DI, Swagger |
-| `Service` | Repository, Common | שירותי דומיין, AutoMapper, Email, Encryption |
-| `Repository` | — | Repositories + Entity classes |
-| `DataContext` | Repository | `CityCarDb`, מיגרציות |
-| `Common` | — | DTOs להעברת נתונים בין שכבות |
-| `CityCar.Worker` | Service, DataContext, Repository | הרצת `OrderTrackingService` כל 60 שניות |
-
----
-
-## ארכיטקטורה
-
-```
-Client (Frontend / Swagger)
-        │
-        ▼
-┌───────────────────┐
-│  Project (API)    │  Controllers, JWT, CORS
-└─────────┬─────────┘
-          │
-          ▼
-┌───────────────────┐
-│  Service          │  UserService, CarService, OrderService, ...
-└─────────┬─────────┘
-          │
-          ▼
-┌───────────────────┐
-│  Repository       │  IRepository<T> → UserRepository, CarRepository, ...
-└─────────┬─────────┘
-          │
-          ▼
-┌───────────────────┐
-│  DataContext      │  CityCarDb (EF Core) → SQL Server
-└───────────────────┘
-
-CityCar.Worker ──► OrderTrackingService (מחזור רקע, ללא HTTP)
-```
-
-**עקרון:** Controllers דקים — מקבלים בקשות, קוראים ל-Service, ומחזירים תשובות HTTP.  
-Entities נשארות ב-`Repository.Entities`; DTOs ב-`Common.Dto` מפרידים בין API לבין מסד הנתונים.
+| פרויקט | תפקיד |
+|--------|--------|
+| `Project` | Controllers, `Program.cs`, DI, Swagger |
+| `Service` | שירותי דומיין, Email, Encryption, Mapper |
+| `Repository` | `IRepository<T>` + מחלקות Entity |
+| `DataContext` | `CityCarDb`, מיגרציות EF |
+| `Common` | DTOs |
+| `CityCar.Worker` | הרצת `OrderTrackingService` ברקע |
 
 ---
 
 ## מודל דומיין
 
-### ישויות עיקריות
+### ישויות
 
-| ישות | תיאור |
-|------|--------|
-| `User` | משתמש — פרטים אישיים, רישיון/דרכון, אשראי מוצפן, דירוג, יתרה, חסימה |
-| `Car` | רכב — מודל, מספר רישוי, קטגוריה, סטטוס, מיקום GPS, תמחור, דלק, ק"מ |
-| `Order` | הזמנה — זמנים, מחיר, סטטוס, קילומטראז', קונפליקטים, קופון |
-| `Region` | אזור גיאוגרפי — שם ומרכז (lat/lng) |
-| `Coupon` | קופון — קוד, סוג הנחה (סכום/אחוז), תוקף, שיוך למשתמש |
-| `CarFeedback` | משוב — דירוג 1–5, הערה, דיווח תקלה |
-| `CarInspection` | בדיקת מצב רכב — ניקיון, מיזוג, נזקים, צמיג |
+| ישות | שדות / לוגיקה עיקרית |
+|------|----------------------|
+| **User** | פרטים אישיים, רישיון/דרכון (מוצפן), אשראי (מוצפן), `UserType`, `UserRank`, `AccountBalance`, `IsBlocked`, קוד איפוס סיסמה |
+| **Car** | מודל, רישוי, `CarCategory`, `CarStatus`, GPS, תמחור (שעה/יום/ק"מ), דלק, ק"מ, נעילה, תחזוקה, `IsPopular` (>20 הזמנות) |
+| **Order** | זמנים, מחיר (בסיס/איחור/סה"כ), סטטוס, ק"מ, ביטוח, קונפлיקט + רכב מוצע, קופון, `IsReassigned` |
+| **Region** | שם, מרכז גיאוגרафי |
+| **Coupon** | קוד, סכום/אחוז, תוקף, שיוך למשתמש |
+| **CarFeedback** | דירוג 1–5, הערה, דיווח תקלה — קשור להזמנה (1:1) |
+| **CarInspection** | ניקיון, מיזוג, נזקים, צמיג — לפני תחילת נסיעה |
 
-### Enums מרכזיים
+### Enums
 
 | Enum | ערכים |
 |------|--------|
 | `UserType` | `user`, `admin` |
-| `UserRank` | `Regular`, `Bronze`, `Silver`, `Gold`, `PurpleBadge` |
+| `UserRank` | `Regular` → `Bronze` (10) → `Silver` (20) → `Gold` (30) → `PurpleBadge` (50) |
 | `CarStatus` | `Available`, `PartiallyBooked`, `Occupied`, `Maintenance` |
 | `CarCategory` | `Mini`, `Family`, `Large`, `Commercial`, `Luxury` |
 | `OrderStatus` | `Pending`, `Active`, `Completed`, `Canceled` |
 | `PricingType` | `ByHour`, `ByDay` |
 | `DiscountType` | `Amount`, `Percentage` |
 
-### קשרים בין ישויות
-
-- `User` ←→ `Order` (1:N)
-- `Car` ←→ `Order` (1:N)
-- `Region` ←→ `Car` (1:N)
-- `Coupon` ←→ `Order` (1:N, אופציונלי)
-- `Order` ←→ `CarFeedback` (1:1)
-- `Order` ←→ `CarInspection` (1:1)
-
 ---
 
 ## אימות והרשאות
 
-- **JWT Bearer** — לאחר התחברות מוצג Token ב-Header: `Authorization: Bearer {token}`.
-- **Claims:** `NameIdentifier` (UserId), `Role` (`user` / `admin`).
-- **Swagger** — מוגדר עם Security Scheme מסוג Bearer לבדיקות נוחות.
+- **JWT** — Header: `Authorization: Bearer {token}`. Claims: `NameIdentifier` (UserId), `Role`.
+- **Login** מחזיר קוד סטטוס: 200 (הצלחה), 404 (משתמש לא קיים), 401 (סיסמה שגויה), 403 (חסום).
+- **Swagger** — Bearer Security Scheme; ב-Development נגיש ב-root (`RoutePrefix = ""`).
 - **CORS** — פתוח לכל Origin (Development).
-
-Endpoints מוגנים לפי `[Authorize]` ו-`[Authorize(Roles = "admin")]` / `[Authorize(Roles = "user")]`.  
-משתמש רגיל יכול לצפות רק בהזמנות שלו; Admin רואה הכל.
+- משתמש רואה רק הזמנות שלו; Admin רואה הכל.
 
 ---
 
-## תהליכים עסקיים מרכזיים
+## לוגיקה עסקית — סקירה
 
 ### מחזור חיי הזמנה
 
 ```
 Pending ──► Active ──► Completed
    │            │
-   └─ Canceled  └─ (איחור → LateFee, הזמנה נשארת Active)
+   └─ Canceled  └─ איחור: LateFee מצטבר, ההזמנה נשארת Active (לא נסגרת אוטומטית)
 ```
 
-1. **יצירה (`Pending`)** — בדיקת זמינות רכב, חפיפה עם הזמנות אחרות, חסימת שבת, חישוב מחיר בסיס, שליחת מייל אישור.
-2. **הפעלה (`Active`)** — אוטומטית על ידי Worker כשמגיע `StartTime`, או ידנית דרך API. הרכב עובר ל-`Occupied`.
-3. **נסיעה** — עדכון קילומטראז' (API או Worker), פתיחה/נעילה, דיווח תדלוק.
-4. **סיום (`Completed`)** — חישוב מחיר סופי (ק"מ, איחור, ביטוח, דירוג), ניכוי מיתרה, עדכון דירוג משתמש.
+1. **יצירה** — ולידציות: רכב פנוי, אין חפיפה למשתמש/רכב, לא בשבת, משתמש לא חסום, רכב לא בתחזוקה → חישוב `BasePrice` → `Pending` → מייל אישור → רכב עובר ל-`PartiallyBooked`.
+2. **הפעלה** — Worker מעביר ל-`Active` כש-`StartTime` הגיע (אם אין קונפליקט/תחזוקה).
+3. **נסיעה** — `UnlockCar` / `LockCar`, עדכון ק"מ (API או Worker), `ReportRefuel`, `submit-start-report` (CarInspection).
+4. **סיום** — `FinishOrder`: חישוב סופי, ניכוי מיתרה, עדכון דירוג, רכב חוזר ל-`Available`.
+
+### Buffer של 15 דקות
+
+בכל המערכת (CarService, OrderService, OrderTrackingService) מוגדר **buffer של 15 דקות** אחרי כל הזמנה — זמן הכנה/ניקוי בין נהג לנהג.  
+בדיקות זמינות, חפיפות וחיפוש רכב חלופי מתחשבות ב-`ExpectedEndTime + 15min` (ובנסיעה פעילה באיחור — ב-`DateTime.Now`).
 
 ### חישוב מחיר
 
-- **בסיס:** `TotalDays × PricePerDay` + `TotalHours × PricePerHour` (אם שעות עולות על מחיר יום — חיוב יומי).
-- **ביטוח:** +50₪/יום או +3₪/שעה (`WantsInsuranceUpgrade`).
-- **בסיום:** +1.5₪/ק"מ, +1₪/דקת איחור, +50₪ לנהג חדש (גיל < 24).
-- **הנחות:** דירוג Gold (10%), PurpleBadge (15%), קופון, יתרה בחשבון.
-- **בונוס תדלוק:** עד 2× `PricePerHour` ליתרת המשתמש.
+| שלב | חישוב |
+|-----|--------|
+| **בסיס (יצירה)** | `TotalDays × PricePerDay` + `TotalHours × PricePerHour`. אם שעות עולות על מחיר יום — חיוב יומי. ברירת מחדל: שעה אחת. |
+| **ביטוח** | +50₪/יום או +3₪/שעה (`WantsInsuranceUpgrade`) |
+| **בסיום** | +1.5₪/ק"מ, +1₪/דקת איחור, +50₪ לנהג חדש (גיל < 24) |
+| **הנחות** | Gold 10%, PurpleBadge 15%, קופון, `DiscountAmount`, יתרה ב-`AccountBalance` |
+| **תדלוק** | בונוס עד 2× `PricePerHour` ליתרה |
 
-### ניהול קונפליקטים (רכב חלופי)
+### זמינות רכב (`CarService`)
 
-כשמשתמש מחזיר רכב באיחור והזמנה הבאה ממתינה:
+- **Haversine** — חישוב מרחק אווירי (ק"מ) בין משתמש לרכב; מיון לפי קרבה ב-`GetAllClosest`.
+- **GetDetailedAvailabilityStatus** — בודק חפיפות ביומן (+ buffer), מחזיר `Available` / `PartiallyBooked` / `Occupied` / `Maintenance`.
+- **PartiallyBooked** — יש חלון פנוי בתחילת/סוף טווח המבוקש (פער ≥ 60 דק' בהתחלה).
+- **IsCarFitForRoad** — רכב כשיר: לא בתחזוקה, דלק ≥ 15%.
+- **אזור זמן** — המרות ל-`Israel Standard Time` בחיפוש לפי תאריך.
 
-- `ProcessLateCustomerConflict` מחפש רכב חלופי זמין (אותה קטגוריה, מספיק מקומות).
-- ההזמנה הממתינה מקבלת `HasConflict = true` + פרטי הרכב המוצע.
-- המשתמש מאשר/דוחה דרך `confirm-replacement`.
-- Worker מריץ את הלוגיקה כל 60 שניות.
+### קונפליקטים ורכב חלופי (`OrderService`)
+
+**מתי נוצר קונפליקט:** נהג קודם מחזיר באיחור (`Active` + `ExpectedEndTime` עבר) והזמנה `Pending` הבאה ממתינה על אותו רכב.
+
+**`ProcessLateCustomerConflict`:**
+1. מסמן `HasConflict = true`, `ConflictReason = "LateDriver"`.
+2. בונה רשימת רכבים תפוסים ביומן (עם buffer).
+3. מחפש רכב חלופי: לא אותו רכב, לא בתחזוקה, ≥ מקומות, פנוי ביומן, **≤ 10 ק"מ** (Haversine).
+4. שומר הצעה: `SuggestedReplacementCarId`, מודל, מיקום, מקומות, דלק, `DiscountAmount = PricePerHour` (שעה חינם).
+
+**`ConfirmReplacement`:**
+- **מקבל** — מבטל הזמנה ישנה (חינם), יוצר הזמנה חדשה על הרכב החלופי (`Active` מיידית), מחיל הנחה.
+- **דוחה** — מבטל + 20₪ פיצוי ל-`AccountBalance`.
+
+**`UnlockCar`** — חוסם פתיחה אם נהג קודם עדיין `Active` על אותו רכב.
 
 ### הגבלת שבת
 
-הזמנות עם `StartTime` או `ExpectedEndTime` ביום שישי מ-16:00 או בשבת עד 20:00 — נדחות.
+`IsTimeInShabbat`: שישי מ-16:00, שבת עד 20:00 — יצירת הזמנה נדחית.
 
 ### דירוג משתמשים
 
-| דירוג | תנאי | הטבה |
-|--------|------|------|
-| Bronze | 10+ הזמנות שהושלמו | — |
+| דירוג | הזמנות שהושלמו | הטבה |
+|--------|----------------|------|
+| Bronze | 10+ | — |
 | Silver | 20+ | — |
 | Gold | 30+ | 10% הנחה |
 | PurpleBadge | 50+ | 15% הנחה |
 
-### עובד רקע (`CityCar.Worker`)
-
-רץ כ-Windows Service / Console, כל **60 שניות**:
-
-| שלב | פעולה |
-|-----|--------|
-| `UpdatePendingOrders` | מעבר Pending → Active; טיפול בקונפליקט/תחזוקה |
-| `UpdateActiveTripsProgress` | סימולציית קילומטראז' לנסיעות פעילות |
-| `HandleBufferingAndConflicts` | זיהוי איחורים והפעלת הצעת רכב חלופי |
-| `AutoFinishExpiredOrders` | התראה על הזמנות שעבר זמנן (ללא סגירה אוטומטית) |
-
 ---
 
-## API — Controllers ו-Endpoints
+## Project — שכבת API
+
+### `Program.cs`
+
+- רישום Controllers עם JSON **camelCase**.
+- DI: `IContext` → `CityCarDb`, `AddServices()`, `OrderTrackingService`, `MemoryCache`.
+- JWT (Issuer, Audience, Key), Authentication + Authorization.
+- Swagger עם Bearer; CORS פתוח.
+- Pipeline: HTTPS → CORS → Auth → Controllers.
+
+### Controllers
+
+| Controller | לוגיקה / Endpoints |
+|------------|-------------------|
+| **UsersController** | `login`, `register`, CRUD (admin), `change-password`, `toggle-block`, `current`, `forgot-password`, `reset-password`, `request-registration-code`, `verify-registration-code`, חיפוש לפי אימייל |
+| **CarsController** | CRUD (admin), `closest` (lat/lng + טווח), `available`, `check-suitability`, `popular`, `needs-fuel`, עדכון דלק/ק"מ, `is-fit`, סטטוס, תחזוקה, `toggle-lock`, לפי אזור, `extended-status` |
+| **OrdersController** | CRUD, `unlock`/`lock`, `finish`, `update-progress`, דוחות (count/revenue/active), ביטול/תשלום, חיפושים, `submit-start-report`, `check-user-overlap`, `extend`, `confirm-replacement`, `report-refuel` |
+| **CouponsController** | CRUD, `apply-discount`, `validate`, `redeem`, קופונים לפי משתמש, `expiring-soon` |
+| **RegionsController** | CRUD, חיפוש לפי שם, `count`, עדכון מרכז |
+| **CarFeedbacksController** | CRUD, לפי רכב / משתמש |
+| **WeatherForecastController** | Controller דוגמה (תבנית ASP.NET) |
 
 Base route: `api/{controller}`
 
-### Users (`/api/Users`)
+---
 
-| Method | Route | הרשאה | תיאור |
-|--------|-------|--------|--------|
-| POST | `login` | ציבורי | התחברות → JWT |
-| POST | `register` | ציבורי | הרשמה |
-| GET | `/` | admin | כל המשתמשים |
-| GET | `{id}` | admin | משתמש לפי ID |
-| PUT | `{id}` | user | עדכון פרופיל |
-| DELETE | `{id}` | admin | מחיקה |
-| GET | `email/{email}` | admin | חיפוש לפי אימייל |
-| PATCH | `change-password` | מחובר | שינוי סיסמה |
-| PATCH | `toggle-block/{userId}` | admin | חסימה/שחרור |
-| GET | `current` | מחובר | משתמש נוכחי |
-| GET | `count-user` | admin | ספירת משתמשים |
-| POST | `forgot-password` | ציבורי | שליחת קוד איפוס |
-| POST | `reset-password` | ציבורי | איפוס סיסמה |
-| POST | `request-registration-code` | ציבורי | קוד אימות הרשמה |
-| POST | `verify-registration-code` | ציבורי | אימות קוד |
+## Service — לוגיקה עסקית
 
-### Cars (`/api/Cars`)
+### Interfaces (`Service/Interfaces/`)
 
-| Method | Route | הרשאה | תיאור |
-|--------|-------|--------|--------|
-| GET | `/`, `{id}` | ציבורי/מחובר | רשימה / פרטי רכב |
-| POST, PUT, DELETE | `/`, `{id}` | admin | CRUD |
-| GET | `closest` | — | רכבים קרובים (lat, lng, start, end) |
-| GET | `available` | — | רכבים פנויים |
-| GET | `{id}/check-suitability` | — | בדיקת התאמה לטווח זמן |
-| GET | `popular`, `needs-fuel` | — | רכבים פופולריים / דורשים תדלוק |
-| PATCH | `{id}/fuel`, `{id}/mileage` | — | עדכון דלק / ק"מ |
-| GET | `{id}/is-fit` | — | כשירות לנסיעה |
-| GET | `status/{status}` | — | רכבים לפי סטטוס |
-| PATCH | `{id}/status` | admin | שינוי סטטוס |
-| PATCH | `{carId}/send-to-maintenance`, `release-from-maintenance` | admin | תחזוקה |
-| GET | `available/by-region/{regionId}` | — | לפי אזור |
-| GET | `{id}/extended-status` | — | סטטוס מורחב |
-| PATCH | `{id}/toggle-lock` | — | נעילה/פתיחה |
+`IUserService`, `ICarService`, `IOrderService`, `ICouponService`, `IRegionService`, `ICarFeedbackService`, `IEmailService`, `IService<T>`, `IsExist`.
 
-### Orders (`/api/Orders`)
+### Services (`Service/Services/`)
 
-| Method | Route | הרשאה | תיאור |
-|--------|-------|--------|--------|
-| GET | `/`, `{id}` | admin / מחובר | הזמנות |
-| POST | `/` | user | יצירת הזמנה |
-| PUT, DELETE | `{id}` | user | עדכון / ביטול |
-| POST | `{id}/unlock`, PUT `{id}/lock` | user | פתיחה / נעילת רכב |
-| PATCH | `{id}/finish` | user | סיום נסיעה |
-| POST | `{id}/update-progress` | user | עדכון ק"מ |
-| GET | `count`, `revenue`, `active` | admin / מחובר | דוחות |
-| GET | `by-date/{date}`, `range` | admin | לפי תאריך |
-| PATCH | `mark-as-paid/{orderId}`, `cancel/{orderId}` | מחובר | תשלום / ביטול |
-| GET | `by-email/{email}`, `by-car/{carNumber}`, `user/{userId}` | admin / מחובר | חיפושים |
-| POST | `{id}/submit-start-report` | מחובר | דיווח מצב לפני נסיעה |
-| GET | `check-user-overlap` | — | בדיקת חפיפה |
-| POST | `extend/{id}` | user | הארכת הזמנה |
-| POST | `{id}/confirm-replacement` | user | אישור/דחיית רכב חלופי |
-| POST | `{id}/report-refuel` | user | דיווח תדלוק |
-
-### Coupons (`/api/Coupons`)
-
-CRUD (admin), `apply-discount`, `validate`, `redeem`, `user/{userId}/unused`, `expiring-soon`.
-
-### Regions (`/api/Regions`)
-
-CRUD (admin), `name/{name}`, `count`, PATCH `{id}/center`.
-
-### CarFeedbacks (`/api/CarFeedbacks`)
-
-CRUD, `car/{carId}`, `user/{userId}`.
+| קובץ | לוגיקה |
+|------|--------|
+| **UserService** | רישום (BCrypt), Login + JWT (`GenerateToken`), עדכון פרופיל, הצפנת רישיון/דרכון/אשראי (AES), שינוי/איפוס סיסמה (קוד במייל + MemoryCache), חסימה, `GetCurrentUser`, קוד אימות הרשמה |
+| **CarService** | CRUD, Haversine + זמינות לפי יומן, buffer 15 דק', סטטוס מפורט, תחזוקה, דלק/ק"מ, נעילה, רכבים פופולריים / דורשי תדלוק |
+| **OrderService** | יצירה/עדכון/ביטול, `IsCarBusy`, `IsUserOverlap`, תמחור, `FinishOrder`, Lock/Unlock, `UpdateTripProgress` (סימולציית ק"מ), קונפליקטים, `ConfirmReplacement`, הארכה, דוחות הכנסות, `ReportStartCondition` → CarInspection |
+| **CouponService** | CRUD, ולידציה, מימוש, בדיקת תוקף |
+| **RegionService** | CRUD אזורים |
+| **CarFeedbackService** | משוב והערות על רכב/הזמנה |
+| **EmailService** | SMTP — אישור הזמנה, איפוס סיסמה, קוד הרשמה (HTML RTL) |
+| **OrderTrackingService** | לולאת Worker: הפעלת Pending, סימולציית ק"מ, קונפליקטים, התראת איחור |
+| **EncryptionService** | AES — הצפנה/פענוח שדות רגישים |
+| **MapperProfile** | AutoMapper Entity ↔ DTO |
+| **ExtensionService** | `AddServices()` — רישום DI מרוכז לכל השירותים וה-Repositories |
 
 ---
 
-## שכבת Service — שירותים
+## Repository — גישה לנתונים
 
-| שירות | אחריות |
-|--------|---------|
-| `UserService` | הרשמה, Login + JWT, BCrypt, איפוס סיסמה, חסימה, הצפנת אשראי |
-| `CarService` | CRUD, זמינות, חיפוש גיאוגרפי, סטטוס, תחזוקה, נעילה |
-| `OrderService` | מחזור הזמנה, תמחור, קונפליקטים, הארכה, סיום, דוחות |
-| `CouponService` | CRUD, ולידציה, מימוש |
-| `RegionService` | CRUD אזורים |
-| `CarFeedbackService` | משוב והערות |
-| `EmailService` | SMTP — אישור הזמנה, איפוס סיסמה, קוד הרשמה |
-| `OrderTrackingService` | לוגיקת Worker — הפעלה, ק"מ, קונפליקטים |
-| `EncryptionService` | AES לפרטי כרטיס אשראי |
-| `MapperProfile` | AutoMapper Entity ↔ DTO |
-| `ExtensionService` | `AddServices()` — רישום DI מרוכז |
+### `IRepository<T>`
 
----
+`GetAll`, `GetById`, `Add`, `Update`, `Delete`, `Exists` — ממשק CRUD גנרי לכל ישות.
 
-## שכבת Repository
+### Repositories
 
-- **`IRepository<T>`** — CRUD גנרי: `GetAll`, `GetById`, `Add`, `Update`, `Delete`, `Exists`.
-- **`IContext`** — ממשק ל-`CityCarDb` (Save).
-- **Repositories:** `UserRepository`, `CarRepository`, `OrderRepository`, `RegionRepository`, `CouponRepository`, `FeedbackRepository`, `CarInspectionRepository`.
-- **Entities** — מוגדרות ב-`Repository/Entities/`.
+| Repository | ישות |
+|------------|------|
+| `UserRepository` | User |
+| `CarRepository` | Car |
+| `OrderRepository` | Order |
+| `RegionRepository` | Region |
+| `CouponRepository` | Coupon |
+| `FeedbackRepository` | CarFeedback |
+| `CarInspectionRepository` | CarInspection |
+
+**Entities** — `Repository/Entities/` (User, Car, Order, Region, Coupon, CarFeedback, CarInspection).
+
+**`ExtensionsRepository`** — `AddRepository()` לרישום כל ה-Repositories ב-DI.
 
 ---
 
 ## DataContext
 
-- **`CityCarDb`** — DbContext עם DbSets לכל הישויות.
-- **`OnModelCreating`** — דיוק עשרוני (18,2), קשר 1:1 Order↔Feedback, `DeleteBehavior.Restrict`.
-- **`Migrations/`** — מיגרציות EF Core (שינויי סכמה לאורך פיתוח הפרויקט).
+- **`CityCarDb`** — DbSets: Users, Cars, Orders, Regions, Coupons, Feedbacks, CarInspections.
+- **`OnConfiguring`** — Connection String ל-SQL Server (ברירת מחדל אם לא הוגדר מבחוץ).
+- **`OnModelCreating`** — דיוק decimal (18,2); קשר 1:1 Order↔Feedback; `DeleteBehavior.Restrict` על Inspections.
+- **`Migrations/`** — מיגרציות EF (שדות קונפליקט, בדיקות, אשראי, שבת ועוד).
 
 ---
 
@@ -317,72 +285,90 @@ CRUD, `car/{carId}`, `user/{userId}`.
 |-----|--------|
 | `UserDto` | הרשמה, עדכון, תצוגה |
 | `LoginDto` | התחברות |
-| `CarDto` | CRUD רכב |
-| `OrderDto` | יצירה ועדכון הזמנה |
+| `CarDto` | CRUD + מרחק, סטטוס זמינות |
+| `OrderDto` | יצירה, עדכון, תצוגה מפורטת |
 | `CouponDto` | קופונים |
 | `RegionDto` | אזורים |
 | `CarFeedbackDto` | משוב |
-| `CarInspectionDto` | בדיקת מצב רכב |
+| `CarInspectionDto` | בדיקת מצב לפני נסיעה |
+
+---
+
+## CityCar.Worker — עובד רקע
+
+פרויקט נפרד (`BackgroundService`), רץ כ-Windows Service / Console, **כל 60 שניות**:
+
+| שלב | מה קורה |
+|-----|---------|
+| `UpdatePendingOrders` | Pending → Active כשהגיע `StartTime`; אם הרכב עדיין תפוס/בתחזוקה — `ProcessLateCustomerConflict` |
+| `UpdateActiveTripsProgress` | סימולציית ק"מ לנסיעות Active |
+| `HandleBufferingAndConflicts` | זיהוי איחור (2+ דק' אחרי `ExpectedEndTime`) + הצעת רכב חלופי (פעם אחת — `HasConflict`) |
+| `AutoFinishExpiredOrders` | לוג על הזמנות באיחור — **לא** סוגר אוטומטית (המשתמש רואה באיחור ב-UI) |
+
+Worker משתמש באותם Services ו-DbContext כמו ה-API.
+
+---
+
+## API — Endpoints (תמצית)
+
+### Users — `/api/Users`
+`POST login`, `register`, `forgot-password`, `reset-password`, `request-registration-code`, `verify-registration-code` | `GET /`, `{id}`, `email/{email}`, `current`, `count-user` | `PUT {id}` | `PATCH change-password`, `toggle-block/{userId}` | `DELETE {id}`
+
+### Cars — `/api/Cars`
+`GET /`, `{id}`, `closest`, `available`, `popular`, `needs-fuel`, `status/{status}`, `available/by-region/{regionId}`, `{id}/check-suitability`, `{id}/is-fit`, `{id}/extended-status` | `POST`, `PUT`, `DELETE` (admin) | `PATCH {id}/fuel`, `mileage`, `status`, `toggle-lock`, תחזוקה
+
+### Orders — `/api/Orders`
+`POST /` (user), `{id}/unlock`, `{id}/lock`, `{id}/finish`, `{id}/update-progress`, `{id}/submit-start-report`, `extend/{id}`, `{id}/confirm-replacement`, `{id}/report-refuel` | `GET active`, `revenue`, `by-date`, `range`, חיפושים | `PATCH cancel`, `mark-as-paid`
+
+### Coupons, Regions, CarFeedbacks
+CRUD + endpoints ייעודיים (validate, redeem, expiring-soon, center וכו').
 
 ---
 
 ## הפעלה
 
 ### דרישות
-
-- [.NET 9 SDK](https://dotnet.microsoft.com/download)
-- SQL Server (LocalDB / Express / Full)
-- Visual Studio 2022 / VS Code / Rider
-- (אופציונלי) Gmail App Password לשליחת מיילים
+- .NET 9 SDK
+- SQL Server
+- Visual Studio 2022 / VS Code
+- (אופציונלי) Gmail App Password
 
 ### שלבים
 
-1. **Clone** את `CityCar-Project` ואת `CityCar.Worker` (תיקייה אחות — נדרש לפתיחת `Project.sln`).
-
-2. **חיבור DB** — עדכן Connection String:
-   - `DataContext/CityCarDb.cs` → `OnConfiguring` (ברירת מחדל)
-   - או `CityCar.Worker/appsettings.json` → `ConnectionStrings:DefaultConnection`
-
-3. **מיגרציות:**
+1. Clone את `CityCar-Project` **ו-** `CityCar.Worker` (תיקייה אחות — נדרש ל-Solution).
+2. עדכן Connection String ב-`DataContext/CityCarDb.cs` או ב-`CityCar.Worker/appsettings.json`.
+3. מיגרציות:
    ```bash
    cd DataContext
    dotnet ef database update --startup-project ../Project
    ```
-
-4. **Restore & Run API:**
+4. הרצה:
    ```bash
    dotnet restore
    dotnet run --project Project
    ```
-
-5. **Swagger** (Development):  
-   `https://localhost:7034` או `http://localhost:5014`
-
-6. **Worker** (אופציונלי, לתהליכי רקע):
+5. Swagger: `https://localhost:7034` / `http://localhost:5014`
+6. Worker (אופציונלי):
    ```bash
    dotnet run --project ../CityCar.Worker/CityCar.Worker
    ```
 
 ---
 
-## תצורה (`appsettings.json` / User Secrets)
+## תצורה
 
 | מפתח | תיאור |
 |------|--------|
-| `Jwt:Issuer` | Issuer של ה-Token |
-| `Jwt:Audience` | Audience של ה-Token |
-| `Jwt:Key` | מפתח סימטרי (32+ תווים) — **חובה** |
-| `EmailSettings:SmtpServer` | שרת SMTP (ברירת מחדל: Gmail) |
-| `EmailSettings:Port` | פורט SMTP |
-| `EmailSettings:SenderEmail` | כתובת שולח |
-| `EmailSettings:SenderPassword` | App Password |
-| `EncryptionKey` | מפתח AES (32 תווים) — הצפנת אשראי |
-| `ConnectionStrings:DefaultConnection` | (Worker) חיבור SQL Server |
+| `Jwt:Issuer`, `Jwt:Audience`, `Jwt:Key` | JWT (Key חובה, 32+ תווים) |
+| `EmailSettings` | SMTP — Server, Port, SenderEmail, SenderPassword |
+| `EncryptionKey` | מפתח AES (32 תווים) |
+| `ConnectionStrings:DefaultConnection` | Worker → SQL Server |
 
-מומלץ לשמור סודות (`Jwt:Key`, סיסמת מייל) ב-**User Secrets** ולא ב-Git.
+מומלץ User Secrets לסודות — לא ב-Git.
 
 ---
 
 ## סיכום
 
-CityCar הוא פרויקט Backend מלא לשירות השכרת רכבים, עם הפרדת אחריות ברורה בין שכבות, מודל דומיין עשיר, ותהליכים עסקיים שמדמים מערכת השכרה אמיתית — מהרשמת משתמש ועד ניהול קונפליקטים, תמחור דינמי ועדכון אוטומטי ברקע.
+CityCar הוא Backend מלא לשירות השכרת רכבים: **API** שמקבל בקשות, **Service** שמבצע לוגיקה עסקית (תמחור, קונפליקטים, אימות), **Repository** שמנהל נתונים, **DataContext** שמגדיר סכימה, ו-**Worker** שמסנכרן מחזור חיים ברקע.  
+כל יחידת קוד ממוקדת באחריות אחת — עבודה ממוסדת לניהול השכרה, משתמשים, צי רכבים והזמנות.
