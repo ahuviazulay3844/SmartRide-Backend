@@ -1,4 +1,74 @@
-# CityCar — מערכת השכרת רכבים
+<p align="center">
+  <a href="docs/media/demo.mp4?raw=true"><img src="docs/media/demo.gif" width="820" alt="CityCar demo"></a>
+</p>
+
+<h1 align="center">⚙️ CityCar · שרת ה-API</h1>
+
+<p align="center">
+  <b>Backend מלא לשירות השכרת רכבים שיתופית: תמחור, זמינות, קונפליקטים, תקלות ואבטחה, הכל בלוגיקה עסקית אמיתית.</b>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/.NET-9-512BD4?logo=dotnet&logoColor=white">
+  <img src="https://img.shields.io/badge/ASP.NET_Core-Web_API-512BD4?logo=dotnet&logoColor=white">
+  <img src="https://img.shields.io/badge/EF_Core-9-6DB33F">
+  <img src="https://img.shields.io/badge/SQL_Server-CC2927?logo=microsoftsqlserver&logoColor=white">
+  <img src="https://img.shields.io/badge/Auth-JWT-000000?logo=jsonwebtokens&logoColor=white">
+  <img src="https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?logo=swagger&logoColor=black">
+</p>
+
+<p align="center">
+  🎬 <a href="docs/media/demo.mp4?raw=true"><b>לצפייה בסרטון ההדגמה המלא (2:34, עם קריינות)</b></a>
+</p>
+
+---
+
+## 🧩 המערכת המלאה: שלושה חלקים שעובדים יחד
+
+| חלק | תפקיד | ריפו |
+|------|--------|------|
+| 💻 **צד לקוח** | React: מפה, הזמנות, נסיעות, פאנל ניהול | [SmartRide-Frontend](https://github.com/ahuviazulay3844/SmartRide-Frontend) |
+| ⚙️ **שרת API** | ASP.NET Core 9 · לוגיקה עסקית · SQL Server | **הריפו הזה** |
+| ⏱️ **Worker** | שירות Windows שסורק את ההזמנות כל 60 שניות | [SmartRide-Worker](https://github.com/ahuviazulay3844/SmartRide-Worker) |
+
+<p align="center"><img src="docs/media/architecture.jpg" width="820"></p>
+
+---
+
+## 💡 הלוגיקה שמאחורי הקלעים
+
+| תרחיש | מה השרת עושה |
+|--------|---------------|
+| 📍 **רכבים קרובים** | נוסחת **Haversine** מחשבת מרחק אמיתי על פני כדור הארץ, ומיון מהקרוב לרחוק |
+| 📅 **זמינות** | בדיקת יומן הרכב כולל **15 דקות הכנה** בין נהג לנהג · מניעת הזמנה כפולה · בדיקת חפיפה למשתמש |
+| 🕯️ **שבת** | חסימה אוטומטית של הזמנות משישי 16:00 ועד מוצאי שבת |
+| 🛞 **פנצ'ר בתחילת נסיעה** | הרכב יוצא לתחזוקה · חיפוש החלופי הקרוב ביותר (פנוי, דלק ≥ 20%, מושבים ≥) · שעה במתנה · **חיוב הנהג הקודם** שלא דיווח |
+| ⏰ **נהג מאחר** | זיהוי התנגשות עם ההזמנה הבאה · רכב חלופי עד 10 ק"מ · סירוב = ביטול + ₪20 פיצוי |
+| 💳 **תמחור דינמי** | שעה/יום · ק"מ · ₪1 לדקת איחור · תוספת לנהג צעיר · ביטוח · קופונים |
+| 🏅 **דרגות לקוח** | Bronze ← Silver ← Gold ← Purple, עד **15% הנחה** |
+| 🛡️ **אבטחה** | JWT עם הרשאות לפי תפקיד · סיסמאות ב-BCrypt · רישיון ואשראי מוצפנים ב-AES |
+
+<table>
+<tr>
+<td width="50%" align="center"><img src="docs/media/flat.jpg"><br><b>🛞 פנצ'ר ← רכב חלופי אוטומטי</b></td>
+<td width="50%" align="center"><img src="docs/media/late.jpg"><br><b>⏰ נהג מאחר ← ה-Worker מוצא פתרון</b></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/media/live.jpg"><br><b>⚡ אין הזמנה כפולה, גם בזמן אמת</b></td>
+<td align="center"><img src="docs/media/admin.jpg"><br><b>🛠️ API לפאנל הניהול</b></td>
+</tr>
+</table>
+
+### 🚀 הרצה מהירה
+
+```bash
+dotnet restore
+dotnet run --project Project --launch-profile https   # Swagger: https://localhost:7034
+```
+
+---
+
+## 📚 תיעוד טכני מפורט
 
 מערכת API לניהול שירות השכרת רכבים עירוני, מבוססת .NET 9 ו-ASP.NET Core.  
 הפרויקט מדמה שירות השכרה לפי דקה/שעה (Car2Go / Gett Car): משתמש מזמין רכב קרוב, פותח אותו מהאפליקציה, נוסע, מדווח מצב ומסיים — והמערכת מחשבת מחיר, מנהלת קונפליקטים ומעדכנת את הצי ברקע.
@@ -67,7 +137,7 @@ CityCar.Worker ──► OrderTrackingService (ללא HTTP, כל 60 שנ')
 ## מבנה ה-Solution
 
 ```
-CityCar-Project/
+SmartRide-Backend/
 ├── Project/          ← Web API (נקודת כניסה)
 ├── Service/          ← לוגיקה עסקית
 ├── Repository/       ← Repositories + Entities
@@ -75,7 +145,7 @@ CityCar-Project/
 ├── Common/           ← DTOs
 └── Project.sln
 
-CityCar.Worker/       ← עובד רקע (תיקייה אחות, מחוץ ל-repo)
+SmartRide-Worker/     ← עובד רקע (ריפו נפרד, תיקייה אחות)
 ```
 
 | פרויקט | תפקיד |
@@ -335,7 +405,7 @@ CRUD + endpoints ייעודיים (validate, redeem, expiring-soon, center וכ�
 
 ### שלבים
 
-1. Clone את `CityCar-Project` **ו-** `CityCar.Worker` (תיקייה אחות — נדרש ל-Solution).
+1. Clone את [`SmartRide-Backend`](https://github.com/ahuviazulay3844/SmartRide-Backend) **ו-** [`SmartRide-Worker`](https://github.com/ahuviazulay3844/SmartRide-Worker) לאותה תיקייה, זה לצד זה.
 2. עדכן Connection String ב-`DataContext/CityCarDb.cs` או ב-`CityCar.Worker/appsettings.json`.
 3. מיגרציות:
    ```bash
@@ -350,7 +420,7 @@ CRUD + endpoints ייעודיים (validate, redeem, expiring-soon, center וכ�
 5. Swagger: `https://localhost:7034` / `http://localhost:5014`
 6. Worker (אופציונלי):
    ```bash
-   dotnet run --project ../CityCar.Worker/CityCar.Worker
+   dotnet run --project ../SmartRide-Worker/CityCar.Worker
    ```
 
 ---
