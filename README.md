@@ -1,7 +1,3 @@
-<p align="center">
-  <a href="docs/media/demo.mp4?raw=true"><img src="docs/media/demo.gif" width="820" alt="CityCar demo"></a>
-</p>
-
 <h1 align="center">⚙️ CityCar · שרת ה-API</h1>
 
 <p align="center">
@@ -17,9 +13,9 @@
   <img src="https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?logo=swagger&logoColor=black">
 </p>
 
-<p align="center">
-  🎬 <a href="docs/media/demo.mp4?raw=true"><b>לצפייה בסרטון ההדגמה המלא (2:34, עם קריינות)</b></a>
-</p>
+<h3 align="center">🎬 סרטון הדגמה (2:34, עם קריינות)</h3>
+
+https://github.com/user-attachments/assets/ef0d1e1b-c8a2-41bc-8382-23eefb83d530
 
 ---
 
