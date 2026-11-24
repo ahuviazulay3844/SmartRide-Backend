@@ -4,9 +4,9 @@
   <b>Backend מלא לשירות השכרת רכבים שיתופית: תמחור, זמינות, קונפליקטים, תקלות ואבטחה, הכל בלוגיקה עסקית אמיתית.</b>
 </p>
 
-<h3 align="center">🎬 סרטון הדגמה (2:34, עם קריינות)</h3>
+<h3 align="center">🎬 סרטון הדגמה (3 דקות, עם קריינות)</h3>
 
-https://github.com/user-attachments/assets/ef0d1e1b-c8a2-41bc-8382-23eefb83d530
+https://github.com/user-attachments/assets/1e423f95-8af3-4239-8bb7-d0af02f0d540
 
 ---
 
