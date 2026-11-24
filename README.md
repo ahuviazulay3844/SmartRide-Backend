@@ -4,6 +4,10 @@
   <b>Backend מלא לשירות השכרת רכבים שיתופית: תמחור, זמינות, קונפליקטים, תקלות ואבטחה, הכל בלוגיקה עסקית אמיתית.</b>
 </p>
 
+<p align="center">
+  <a href="https://github.com/user-attachments/assets/1e423f95-8af3-4239-8bb7-d0af02f0d540"><img src="docs/media/preview.gif" width="820" alt="CityCar preview - click to watch with sound"></a>
+</p>
+
 <h3 align="center">🎬 סרטון הדגמה (3 דקות, עם קריינות)</h3>
 
 https://github.com/user-attachments/assets/1e423f95-8af3-4239-8bb7-d0af02f0d540
