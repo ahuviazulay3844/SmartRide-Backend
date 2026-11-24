@@ -4,15 +4,6 @@
   <b>Backend מלא לשירות השכרת רכבים שיתופית: תמחור, זמינות, קונפליקטים, תקלות ואבטחה, הכל בלוגיקה עסקית אמיתית.</b>
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/.NET-9-512BD4?logo=dotnet&logoColor=white">
-  <img src="https://img.shields.io/badge/ASP.NET_Core-Web_API-512BD4?logo=dotnet&logoColor=white">
-  <img src="https://img.shields.io/badge/EF_Core-9-6DB33F">
-  <img src="https://img.shields.io/badge/SQL_Server-CC2927?logo=microsoftsqlserver&logoColor=white">
-  <img src="https://img.shields.io/badge/Auth-JWT-000000?logo=jsonwebtokens&logoColor=white">
-  <img src="https://img.shields.io/badge/Swagger-OpenAPI-85EA2D?logo=swagger&logoColor=black">
-</p>
-
 <h3 align="center">🎬 סרטון הדגמה (2:34, עם קריינות)</h3>
 
 https://github.com/user-attachments/assets/ef0d1e1b-c8a2-41bc-8382-23eefb83d530
